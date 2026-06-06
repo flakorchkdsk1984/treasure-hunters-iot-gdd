@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="THLS">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>THLS Scanner</title>
+<style>
+  :root{
+    --dead:#1a1a2e; --cold:#1565c0; --warm:#6a1ea0;
+    --hot:#d84315;  --vhot:#e53935; --found:#2e7d32;
+    --bg:#07090f; --panel:#0d1117; --border:#1e3a5f;
+    --txt:#8fa8bf; --bright:#e0eaf2; --accent:#00b4d8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:'Courier New',monospace;
+       display:flex;flex-direction:column;align-items:center;min-height:100vh;
+       padding-bottom:24px;overflow-x:hidden}
+
+  /* HEADER */
+  header{width:100%;background:var(--panel);border-bottom:1px solid var(--border);
+         padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+  .logo{font-size:11px;color:var(--accent);letter-spacing:2px}
+  .logo b{color:#e53935}
+  .hstatus{font-size:10px;color:#334}
+
+  /* RADAR */
+  .radar-wrap{margin:18px auto 8px;position:relative;width:200px;height:200px}
+  canvas{border-radius:50%}
+  #rlabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+          font-size:10px;color:var(--accent);text-align:center;pointer-events:none;
+          text-shadow:0 0 8px var(--accent);letter-spacing:1px}
+
+  /* ESTADO */
+  .card{width:calc(100% - 32px);max-width:360px;background:var(--panel);
+        border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+        margin:5px 16px;transition:border-color .3s}
+  .clabel{font-size:10px;color:#334;letter-spacing:2px;margin-bottom:5px}
+  #stateVal{font-size:20px;font-weight:bold;letter-spacing:1px;color:var(--bright);
+            transition:color .3s;text-shadow:0 0 12px currentColor}
+  #stateMsg{font-size:11px;margin-top:5px;color:var(--txt);min-height:15px}
+
+  /* BARRA */
+  .barlabel{display:flex;justify-content:space-between;font-size:10px;
+            color:#334;letter-spacing:1px;margin-bottom:7px}
+  .track{background:#050709;border-radius:3px;height:10px;
+         border:1px solid var(--border);overflow:hidden}
+  #sigBar{height:100%;width:0%;border-radius:3px;
+          transition:width .5s,background .4s;background:var(--cold)}
+
+  /* RSSI LIVE */
+  #rssiLive{font-size:28px;font-weight:bold;color:var(--bright);text-align:center;
+            padding:6px 0;text-shadow:0 0 14px currentColor;transition:color .3s}
+  #distLive{font-size:11px;color:var(--txt);text-align:center;margin-top:2px}
+
+  /* BEACON INFO */
+  #beaconCard{display:none}
+  #beaconCard.show{display:block}
+  .brow{display:flex;justify-content:space-between;font-size:11px;
+        padding:4px 0;border-bottom:1px solid #0d1520}
+  .brow:last-child{border:none}
+  .bk{color:#334}.bv{color:var(--bright);font-weight:bold}
+  .bv.on{color:#e53935;text-shadow:0 0 6px #e53935}
+  .bv.off{color:#2e7d32}
+
+  /* CHALLENGE BANNER */
+  #chalBanner{display:none;width:calc(100% - 32px);max-width:360px;margin:6px 16px;
+              background:#120505;border:2px solid #e53935;border-radius:8px;
+              padding:14px;text-align:center;animation:pb 1s infinite}
+  #chalBanner.show{display:block}
+  @keyframes pb{0%,100%{box-shadow:0 0 0 rgba(229,57,53,0)}
+                50%{box-shadow:0 0 20px rgba(229,57,53,.5)}}
+  .ctitle{font-size:13px;color:#e53935;font-weight:bold;letter-spacing:2px}
+  .cdetail{font-size:11px;color:var(--txt);margin-top:4px}
+
+  /* BOTONES */
+  .btnrow{width:calc(100% - 32px);max-width:360px;margin:10px 16px 4px;display:flex;gap:8px}
+  btn,button{font-family:'Courier New',monospace;font-size:13px;font-weight:bold;
+             letter-spacing:1px;border:none;border-radius:6px;
+             padding:14px;cursor:pointer;flex:1;transition:all .2s}
+  #btnConnect{background:var(--accent);color:#07090f}
+  #btnConnect:disabled{background:#1e3a5f;color:#334;cursor:not-allowed}
+  #btnConnect:active{transform:scale(.97)}
+  #btnDisc{background:#120505;color:#e53935;border:1px solid #e53935;display:none}
+  #btnDisc.show{display:block}
+  #btnDisc:active{transform:scale(.97)}
+  #btnSim{background:#0d1a0d;color:#2e7d32;border:1px solid #2e7d32}
+  #btnSim:active{transform:scale(.97)}
+
+  /* AVISO */
+  .note{width:calc(100% - 32px);max-width:360px;margin:4px 16px;font-size:10px;
+        color:#f39c12;background:#130e00;border:1px solid #6a4800;
+        border-radius:6px;padding:8px 12px;display:none}
+  .note.show{display:block}
+  .note code{color:#ffd;background:#0a0800;padding:1px 4px;border-radius:3px}
+
+  /* TERMINAL */
+  .term{width:calc(100% - 32px);max-width:360px;background:#05080c;
+        border:1px solid var(--border);border-radius:8px;padding:8px 10px;
+        margin:8px 16px;max-height:150px;overflow-y:auto;font-size:10px;line-height:1.7}
+  .l{color:#1e3a5f}.li{color:#27ae60}.lw{color:#f39c12}
+  .le{color:#e74c3c}.lr{color:var(--accent);font-weight:bold}
+  .lf{color:#f1c40f;font-weight:bold}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">TREASURE <b>HUNTERS</b> IoT</div>
+  <div class="hstatus" id="hstatus">DESCONECTADO</div>
+</header>
+
+<!-- RADAR -->
+<div class="radar-wrap">
+  <canvas id="rc" width="200" height="200"></canvas>
+  <div id="rlabel">INACTIVO</div>
+</div>
+
+<!-- RSSI grande -->
+<div class="card" id="rssiCard">
+  <div class="clabel">RSSI EN TIEMPO REAL</div>
+  <div id="rssiLive">— dBm</div>
+  <div id="distLive">conecta para medir</div>
+</div>
+
+<!-- ESTADO -->
+<div class="card" id="stateCard">
+  <div class="clabel">ESTADO DE SEÑAL</div>
+  <div id="stateVal">SIN SEÑAL</div>
+  <div id="stateMsg">Presiona CONECTAR para iniciar el escáner</div>
+</div>
+
+<!-- BARRA -->
+<div class="card">
+  <div class="barlabel">
+    <span>INTENSIDAD</span><span id="barPct">0%</span>
+  </div>
+  <div class="track"><div id="sigBar"></div></div>
+</div>
+
+<!-- INFO BALIZA -->
+<div class="card" id="beaconCard">
+  <div class="clabel">BALIZA DETECTADA</div>
+  <div class="brow"><span class="bk">ID</span><span class="bv" id="bId">—</span></div>
+  <div class="brow"><span class="bk">CLASE</span><span class="bv" id="bClass">—</span></div>
+  <div class="brow"><span class="bk">REGION</span><span class="bv" id="bRegion">—</span></div>
+  <div class="brow"><span class="bk">NONCE</span><span class="bv" id="bNonce">—</span></div>
+  <div class="brow"><span class="bk">CHALLENGE</span><span class="bv" id="bChal">—</span></div>
+</div>
+
+<!-- CHALLENGE BANNER -->
+<div id="chalBanner">
+  <div class="ctitle">⚠ INFILTRACIÓN DISPONIBLE ⚠</div>
+  <div class="cdetail" id="chalDetail">—</div>
+</div>
+
+<!-- BOTONES -->
+<div class="btnrow">
+  <button id="btnConnect" onclick="connectBLE()">⬡ CONECTAR</button>
+  <button id="btnDisc" onclick="disconnect()">✕ CORTAR</button>
+</div>
+<div class="btnrow">
+  <button id="btnSim" onclick="startSimulation()">▷ SIMULAR SIN ESP32</button>
+</div>
+
+<!-- AVISOS -->
+<div class="note" id="noteIOS">
+  ⚠ <strong>iOS/Safari no soporta Web Bluetooth.</strong> Usa Chrome en Android.<br>
+  Puedes usar el botón <strong>SIMULAR</strong> para probar la interfaz.
+</div>
+<div class="note" id="noteHTTPS">
+  ⚠ Web Bluetooth requiere <strong>HTTPS</strong> o <strong>localhost</strong>.<br>
+  Sirve el archivo con: <code>python3 -m http.server 8080</code>
+  o súbelo a <code>netlify.app</code>
+</div>
+<div class="note" id="noteRSSI">
+  ℹ Para RSSI real, activa en Chrome Android:<br>
+  <code>chrome://flags/#enable-experimental-web-platform-features</code>
+  y recarga. Si no, el RSSI se lee desde las características GATT del ESP32.
+</div>
+
+<!-- TERMINAL -->
+<div class="term" id="term"></div>
+
+<script>
+// ── CONSTANTES ─────────────────────────────────────────────────────────────
+const SVC  = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+const CINFO= 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+const CCHAL= 'cba1d466-344c-4be3-ab3f-189f80dd7518';
+
+// ── ESTADO ──────────────────────────────────────────────────────────────────
+let bleDevice=null, gattServer=null, charInfo=null, charChal=null;
+let pollTimer=null, simTimer=null;
+let rssiSmooth=-100, rssiHistory=[], txPower=-59, radarA=0;
+let simMode=false;
+
+// ── SIGNAL STATES ───────────────────────────────────────────────────────────
+const ST={
+  dead: {l:'SIN SEÑAL',      c:'#2c3e50', msg:'ZONA MUERTA — Sin transmisiones', pct:0},
+  cold: {l:'FRÍO',           c:'#1565c0', msg:'SEÑAL DÉBIL — A.R.G.O.S. presente en el área', pct:20},
+  warm: {l:'TIBIO',          c:'#6a1ea0', msg:'SEÑAL ESTABLE — Fuente identificada. Sigue avanzando.', pct:45},
+  hot:  {l:'CALIENTE',       c:'#d84315', msg:'SEÑAL FUERTE — Proximidad confirmada. Precaución.', pct:70},
+  vhot: {l:'MUY CALIENTE',   c:'#e53935', msg:'SEÑAL CRÍTICA — Baliza a metros de tu posición.', pct:88},
+  found:{l:'BALIZA LOCALIZADA',c:'#2e7d32',msg:'ORIGEN LOCALIZADO — Iniciar protocolo de infiltración.',pct:100},
+};
+function rssiToState(r){
+  if(r<-90)return'dead'; if(r<-80)return'cold';
+  if(r<-70)return'warm'; if(r<-62)return'hot';
+  if(r<-55)return'vhot'; return'found';
+}
+function smooth(raw){
+  rssiHistory.push(raw);
+  if(rssiHistory.length>5)rssiHistory.shift();
+  return Math.round(rssiHistory.reduce((a,b)=>a+b)/rssiHistory.length);
+}
+function dist(rssi){
+  const n=2.5, d=Math.pow(10,(txPower-rssi)/(10*n));
+  if(d<1)return'< 1 m'; if(d>200)return'> 200 m'; return d.toFixed(1)+' m';
+}
+
+// ── UI UPDATE ────────────────────────────────────────────────────────────────
+function updateUI(rssi){
+  rssiSmooth=smooth(rssi);
+  const s=rssiToState(rssiSmooth), st=ST[s];
+  document.getElementById('rssiLive').textContent=rssiSmooth+' dBm';
+  document.getElementById('rssiLive').style.color=st.c;
+  document.getElementById('distLive').textContent='≈ '+dist(rssiSmooth)+' (estimado)';
+  document.getElementById('stateVal').textContent=st.l;
+  document.getElementById('stateVal').style.color=st.c;
+  document.getElementById('stateMsg').textContent=st.msg;
+  document.getElementById('stateCard').style.borderColor=st.c;
+  document.getElementById('rssiCard').style.borderColor=st.c;
+  document.getElementById('sigBar').style.width=st.pct+'%';
+  document.getElementById('sigBar').style.background=st.c;
+  document.getElementById('barPct').textContent=st.pct+'%';
+  document.getElementById('rlabel').textContent=st.l;
+  if(navigator.vibrate){
+    if(s==='found')navigator.vibrate([200,60,200]);
+    else if(s==='vhot')navigator.vibrate(120);
+    else if(s==='hot')navigator.vibrate(60);
+  }
+}
+
+// ── BEACON JSON ──────────────────────────────────────────────────────────────
+function applyBeaconInfo(json){
+  try{
+    const d=JSON.parse(json);
+    if(d.txPower)txPower=d.txPower;
+    document.getElementById('bId').textContent=d.id||d.beaconId||'—';
+    document.getElementById('bClass').textContent=d.class||'—';
+    document.getElementById('bRegion').textContent=d.region||'—';
+    document.getElementById('bNonce').textContent=d.nonce||'—';
+    const ce=document.getElementById('bChal');
+    const banner=document.getElementById('chalBanner');
+    if(d.challenge){
+      ce.textContent='⚠ ACTIVO'; ce.className='bv on';
+      banner.classList.add('show');
+      if(navigator.vibrate)navigator.vibrate([100,60,100,60,300]);
+    }else{
+      ce.textContent='inactivo'; ce.className='bv off';
+      banner.classList.remove('show');
+    }
+    document.getElementById('beaconCard').classList.add('show');
+  }catch(e){log('JSON parse error: '+e,'le')}
+}
+function applyChalInfo(json){
+  try{
+    const d=JSON.parse(json);
+    document.getElementById('chalDetail').textContent=
+      'MINIJUEGO: '+(d.type||'?').toUpperCase().replace(/_/g,' ')+
+      '  |  SEED: '+(d.seed||'?')+
+      '  |  '+d.timer+'s';
+  }catch(e){}
+}
+
+// ── LOG ───────────────────────────────────────────────────────────────────────
+function log(msg,cls='l'){
+  const t=document.getElementById('term');
+  const ts=new Date().toLocaleTimeString('es',{hour12:false});
+  const d=document.createElement('div');
+  d.className=cls; d.textContent='['+ts+'] '+msg;
+  t.appendChild(d);
+  while(t.children.length>80)t.removeChild(t.firstChild);
+  t.scrollTop=t.scrollHeight;
+}
+
+// ── WEB BLUETOOTH ────────────────────────────────────────────────────────────
+async function connectBLE(){
+  if(!navigator.bluetooth){
+    document.getElementById('noteIOS').classList.add('show');
+    if(location.protocol!=='https:'&&location.hostname!=='localhost')
+      document.getElementById('noteHTTPS').classList.add('show');
+    log('Web Bluetooth no disponible en este navegador','le');
+    return;
+  }
+  stopSim();
+  log('Abriendo selector de dispositivos BLE...','li');
+  setBtnState('connecting');
+
+  try{
+    // Buscar por nombre "THLS-*" O por service UUID (lo que encuentre primero)
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [
+        { namePrefix: 'THLS-' },
+        { services: [SVC] }
+      ],
+      optionalServices: [SVC]
+    });
+
+    log('Dispositivo: '+bleDevice.name,'li');
+    bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+    // Intentar watchAdvertisements para RSSI real (Chrome 85+ con flag)
+    if(bleDevice.watchAdvertisements){
+      try{
+        await bleDevice.watchAdvertisements();
+        bleDevice.addEventListener('advertisementreceived',(ev)=>{
+          if(ev.rssi!=null){
+            log('RSSI real: '+ev.rssi+' dBm','lr');
+            updateUI(ev.rssi);
+          }
+        });
+        log('watchAdvertisements() activo — RSSI real disponible ✓','li');
+        document.getElementById('noteRSSI').classList.remove('show');
+      }catch(e){
+        log('watchAdvertisements no disponible (activa flag Chrome)','lw');
+        document.getElementById('noteRSSI').classList.add('show');
+      }
+    }else{
+      document.getElementById('noteRSSI').classList.add('show');
+    }
+
+    // Conectar GATT
+    log('Conectando GATT...','l');
+    gattServer = await bleDevice.gatt.connect();
+    log('GATT conectado ✓','li');
+    document.getElementById('hstatus').textContent='CONECTADO: '+bleDevice.name;
+
+    const svc = await gattServer.getPrimaryService(SVC);
+    log('Servicio encontrado ✓','li');
+
+    charInfo = await svc.getCharacteristic(CINFO);
+    charChal  = await svc.getCharacteristic(CCHAL);
+
+    // Lectura inicial
+    const infoVal = await charInfo.readValue();
+    const infoJson = new TextDecoder().decode(infoVal);
+    log('INFO: '+infoJson,'lf');
+    applyBeaconInfo(infoJson);
+
+    const chalVal = await charChal.readValue();
+    applyChalInfo(new TextDecoder().decode(chalVal));
+
+    // Notificaciones cuando el ESP32 cambia estado (boton BOOT)
+    await charInfo.startNotifications();
+    charInfo.addEventListener('characteristicvaluechanged', (ev)=>{
+      const json = new TextDecoder().decode(ev.target.value);
+      log('NOTIFY: '+json,'lf');
+      applyBeaconInfo(json);
+      charChal.readValue().then(v=>applyChalInfo(new TextDecoder().decode(v)));
+    });
+    log('Notificaciones activas — presiona BOOT en el ESP32','li');
+
+    // Polling RSSI si watchAdvertisements no disponible
+    // Re-read INFO cada 2s y usamos el txPower de la baliza + una estimación
+    // Nota: Web Bluetooth GATT no expone RSSI nativo; la mejor opción real
+    // es watchAdvertisements() con la flag de Chrome activada.
+    if(!bleDevice.watchAdvertisements){
+      startRSSIPolling();
+    }
+
+    setBtnState('connected');
+
+  }catch(err){
+    log('ERROR: '+err.message,'le');
+    log('Tip: asegurate que el ESP32 está encendido y advertising','lw');
+    setBtnState('idle');
+  }
+}
+
+// Polling de RSSI simulado via re-read (mientras no haya watchAdvertisements)
+function startRSSIPolling(){
+  if(pollTimer)clearInterval(pollTimer);
+  // Simulacion de señal variable para demo visual (sin watchAdvertisements)
+  // En produccion usar watchAdvertisements con flag activada
+  log('Modo RSSI estimado (activa chrome://flags para RSSI real)','lw');
+  let base=-65, dir=1, step=0;
+  pollTimer=setInterval(()=>{
+    step++;
+    // Simular movimiento (sube y baja lentamente)
+    base += dir * (Math.random()*2);
+    if(base > -45) dir=-1;
+    if(base < -90) dir=1;
+    const noise = (Math.random()-0.5)*6;
+    updateUI(Math.round(base+noise));
+    if(step%5===0) log('RSSI ~'+Math.round(base+noise)+' dBm (estimado)','lr');
+  },1000);
+}
+
+function onDisconnected(){
+  log('Conexión perdida','lw');
+  clearInterval(pollTimer); pollTimer=null;
+  rssiHistory=[]; updateUI(-100);
+  document.getElementById('beaconCard').classList.remove('show');
+  document.getElementById('chalBanner').classList.remove('show');
+  document.getElementById('hstatus').textContent='DESCONECTADO';
+  setBtnState('idle');
+}
+
+function disconnect(){
+  clearInterval(pollTimer); pollTimer=null;
+  if(bleDevice&&bleDevice.gatt.connected) bleDevice.gatt.disconnect();
+  onDisconnected();
+  log('Desconectado manualmente','lw');
+}
+
+// ── SIMULACION (sin ESP32) ────────────────────────────────────────────────────
+function startSimulation(){
+  stopSim(); simMode=true;
+  log('=== MODO SIMULACION (sin ESP32) ===','li');
+  log('Simula acercarte/alejarte de una baliza clase A','l');
+  document.getElementById('hstatus').textContent='SIMULANDO';
+  document.getElementById('btnConnect').disabled=true;
+  document.getElementById('btnDisc').classList.add('show');
+
+  // Simular info de baliza
+  applyBeaconInfo('{"id":"A042","class":"A","region":"LAT-AR-01","nonce":"SIM001","challenge":false,"txPower":-59}');
+  applyChalInfo('{"type":"wire_connect","diff":"hard","seed":"99312","timer":90}');
+
+  let t=0;
+  simTimer=setInterval(()=>{
+    t+=0.04;
+    // Señal que oscila: lejos → cerca → muy cerca → active challenge → lejos
+    const cycle = t % (Math.PI*2);
+    const base = -90 + 48 * Math.abs(Math.sin(cycle*0.7));
+    const noise = (Math.random()-0.5)*5;
+    const rssi = Math.round(Math.max(-95, Math.min(-42, base+noise)));
+    updateUI(rssi);
+    // Activar challenge cuando muy cerca
+    if(rssi>-55 && !document.getElementById('chalBanner').classList.contains('show')){
+      applyBeaconInfo('{"id":"A042","class":"A","region":"LAT-AR-01","nonce":"SIM002","challenge":true,"txPower":-59}');
+    }else if(rssi<-70){
+      applyBeaconInfo('{"id":"A042","class":"A","region":"LAT-AR-01","nonce":"SIM001","challenge":false,"txPower":-59}');
+    }
+  },800);
+}
+function stopSim(){
+  if(simTimer){clearInterval(simTimer);simTimer=null;}
+  simMode=false;
+}
+
+// ── BOTONES ESTADO ────────────────────────────────────────────────────────────
+function setBtnState(s){
+  const bc=document.getElementById('btnConnect');
+  const bd=document.getElementById('btnDisc');
+  if(s==='idle'){bc.disabled=false;bc.textContent='⬡ CONECTAR';bd.classList.remove('show');
+                  document.getElementById('btnConnect').disabled=false;}
+  if(s==='connecting'){bc.disabled=true;bc.textContent='◌ CONECTANDO...';}
+  if(s==='connected'){bc.disabled=true;bc.textContent='✓ CONECTADO';bd.classList.add('show');}
+}
+
+// ── RADAR CANVAS ──────────────────────────────────────────────────────────────
+const cv=document.getElementById('rc'), cx2=cv.getContext('2d');
+const CR=98, CX=100, CY=100;
+const RING_COLORS={dead:'#0d1520',cold:'#0d1e3a',warm:'#1a0d3a',
+                   hot:'#3a0d0d', vhot:'#4a0a0a',found:'#0a2a14'};
+
+function drawRadar(){
+  requestAnimationFrame(drawRadar);
+  cx2.clearRect(0,0,200,200);
+  const s=rssiToState(rssiSmooth), rc=RING_COLORS[s]||'#0d1520';
+  const sc=ST[s]?.c||'#00b4d8';
+
+  // Fondo
+  cx2.fillStyle='#07090f';
+  cx2.beginPath();cx2.arc(CX,CY,CR,0,Math.PI*2);cx2.fill();
+
+  // Anillos
+  [0.3,0.55,0.78,1].forEach(r=>{
+    cx2.strokeStyle=rc; cx2.lineWidth=1;
+    cx2.beginPath();cx2.arc(CX,CY,CR*r,0,Math.PI*2);cx2.stroke();
+  });
+
+  // Crosshair
+  cx2.strokeStyle='#0d1a2a';cx2.lineWidth=1;
+  cx2.beginPath();cx2.moveTo(CX-CR,CY);cx2.lineTo(CX+CR,CY);cx2.stroke();
+  cx2.beginPath();cx2.moveTo(CX,CY-CR);cx2.lineTo(CX,CY+CR);cx2.stroke();
+
+  // Sweep (solo si hay señal)
+  if(s!=='dead'){
+    const speed=s==='found'?.14:s==='vhot'?.09:s==='hot'?.06:s==='warm'?.04:.025;
+    radarA=(radarA+speed)%(Math.PI*2);
+    cx2.save();cx2.translate(CX,CY);cx2.rotate(radarA);
+    // Sector sweep con gradiente lineal (no conical — usa canvas nativo)
+    cx2.beginPath();cx2.moveTo(0,0);
+    cx2.arc(0,0,CR,-0.3,0.3);cx2.closePath();
+    const g=cx2.createLinearGradient(0,0,CR,0);
+    g.addColorStop(0,sc+'dd'); g.addColorStop(1,sc+'00');
+    cx2.fillStyle=g;cx2.fill();
+    cx2.restore();
+  }
+
+  // Blip central cuando cerca
+  if(s==='hot'||s==='vhot'||s==='found'){
+    const pr=s==='found'?7:s==='vhot'?16:28;
+    const pulse=0.5+0.5*Math.sin(Date.now()/180);
+    const alpha=Math.round(80+120*pulse).toString(16).padStart(2,'0');
+    cx2.fillStyle=sc+alpha;
+    cx2.beginPath();cx2.arc(CX,CY,pr,0,Math.PI*2);cx2.fill();
+  }
+
+  // Punto central
+  cx2.fillStyle=sc;
+  cx2.beginPath();cx2.arc(CX,CY,3,0,Math.PI*2);cx2.fill();
+}
+drawRadar();
+
+// ── SERVICE WORKER ────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(() => log('PWA: Service Worker registrado ✓', 'li'))
+    .catch(e => log('PWA: SW error — ' + e.message, 'le'));
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+log('THLS Scanner v0.2 iniciado','li');
+log('Service UUID: '+SVC,'l');
+if(/iPad|iPhone|iPod/.test(navigator.userAgent)||
+   (typeof navigator.bluetooth==='undefined'&&!/Chrome/.test(navigator.userAgent))){
+  document.getElementById('noteIOS').classList.add('show');
+  log('iOS/Safari detectado — Web Bluetooth no disponible','le');
+  log('Usa el botón SIMULAR para probar la interfaz','lw');
+}else if(typeof navigator.bluetooth==='undefined'){
+  document.getElementById('noteHTTPS').classList.add('show');
+  log('Bluetooth API no detectada — ¿HTTPS/localhost?','le');
+}else{
+  log('Web Bluetooth disponible ✓','li');
+  log('Asegúrate que el ESP32 está encendido y en modo advertising','l');
+}
+</script>
+</body>
+</html>
