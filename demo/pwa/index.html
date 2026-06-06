@@ -180,9 +180,10 @@
   o súbelo a <code>netlify.app</code>
 </div>
 <div class="note" id="noteRSSI">
-  ℹ Para RSSI real, activa en Chrome Android:<br>
+  ℹ Para RSSI <strong>real</strong> (distancia precisa), activa en Chrome Android:<br>
   <code>chrome://flags/#enable-experimental-web-platform-features</code>
-  y recarga. Si no, el RSSI se lee desde las características GATT del ESP32.
+  → Enabled → Reiniciar Chrome.<br>
+  Sin la flag, la PWA usa <strong>RSSI estimado</strong> (aun funciona, menos preciso).
 </div>
 
 <!-- TERMINAL -->
@@ -291,49 +292,61 @@ function log(msg,cls='l'){
 }
 
 // ── WEB BLUETOOTH ────────────────────────────────────────────────────────────
+let hasRealRSSI = false;
+
 async function connectBLE(){
+  // Detectar soporte real
   if(!navigator.bluetooth){
-    document.getElementById('noteIOS').classList.add('show');
-    if(location.protocol!=='https:'&&location.hostname!=='localhost')
+    if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
+      document.getElementById('noteIOS').classList.add('show');
+    } else {
+      // En HTTP fuera de localhost, bluetooth tampoco está disponible
       document.getElementById('noteHTTPS').classList.add('show');
+    }
     log('Web Bluetooth no disponible en este navegador','le');
     return;
   }
   stopSim();
+  hasRealRSSI = false;
   log('Abriendo selector de dispositivos BLE...','li');
   setBtnState('connecting');
 
   try{
-    // Buscar por nombre "THLS-*" O por service UUID (lo que encuentre primero)
+    // FIX: solo filtrar por namePrefix — el ESP32 NO incluye el service UUID
+    // en sus advertisement packets, solo lo expone vía GATT.
+    // { services: [SVC] } como filtro nunca matchea dispositivos ESP32 Arduino.
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [
-        { namePrefix: 'THLS-' },
-        { services: [SVC] }
-      ],
+      filters: [{ namePrefix: 'THLS-' }],
       optionalServices: [SVC]
     });
 
     log('Dispositivo: '+bleDevice.name,'li');
     bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
-    // Intentar watchAdvertisements para RSSI real (Chrome 85+ con flag)
-    if(bleDevice.watchAdvertisements){
+    // watchAdvertisements para RSSI real (Chrome con flag experimental)
+    // FIX: rastrear éxito con variable, no con chequeo del método
+    if(typeof bleDevice.watchAdvertisements === 'function'){
       try{
         await bleDevice.watchAdvertisements();
         bleDevice.addEventListener('advertisementreceived',(ev)=>{
           if(ev.rssi!=null){
+            hasRealRSSI = true;
             log('RSSI real: '+ev.rssi+' dBm','lr');
             updateUI(ev.rssi);
           }
         });
-        log('watchAdvertisements() activo — RSSI real disponible ✓','li');
+        log('watchAdvertisements() activo — esperando RSSI real...','li');
         document.getElementById('noteRSSI').classList.remove('show');
+        // Dar 3 segundos para recibir un adv. antes de caer en polling
+        setTimeout(()=>{ if(!hasRealRSSI) startRSSIPolling(); }, 3000);
       }catch(e){
-        log('watchAdvertisements no disponible (activa flag Chrome)','lw');
+        log('watchAdvertisements falló (activa flag Chrome): '+e.message,'lw');
         document.getElementById('noteRSSI').classList.add('show');
+        startRSSIPolling();
       }
     }else{
       document.getElementById('noteRSSI').classList.add('show');
+      startRSSIPolling();
     }
 
     // Conectar GATT
@@ -357,7 +370,7 @@ async function connectBLE(){
     const chalVal = await charChal.readValue();
     applyChalInfo(new TextDecoder().decode(chalVal));
 
-    // Notificaciones cuando el ESP32 cambia estado (boton BOOT)
+    // Notificaciones cuando el ESP32 cambia estado (botón BOOT)
     await charInfo.startNotifications();
     charInfo.addEventListener('characteristicvaluechanged', (ev)=>{
       const json = new TextDecoder().decode(ev.target.value);
@@ -365,21 +378,23 @@ async function connectBLE(){
       applyBeaconInfo(json);
       charChal.readValue().then(v=>applyChalInfo(new TextDecoder().decode(v)));
     });
-    log('Notificaciones activas — presiona BOOT en el ESP32','li');
-
-    // Polling RSSI si watchAdvertisements no disponible
-    // Re-read INFO cada 2s y usamos el txPower de la baliza + una estimación
-    // Nota: Web Bluetooth GATT no expone RSSI nativo; la mejor opción real
-    // es watchAdvertisements() con la flag de Chrome activada.
-    if(!bleDevice.watchAdvertisements){
-      startRSSIPolling();
-    }
+    log('Notificaciones activas — presiona BOOT en el ESP32 ✓','li');
 
     setBtnState('connected');
 
   }catch(err){
-    log('ERROR: '+err.message,'le');
-    log('Tip: asegurate que el ESP32 está encendido y advertising','lw');
+    // Cancelar selector = NotFoundError (usuario cerró sin elegir)
+    if(err.name==='NotFoundError'){
+      log('Selector cancelado por el usuario','lw');
+    } else if(err.name==='SecurityError'){
+      log('ERROR de seguridad — ¿estás en HTTPS o localhost?','le');
+      document.getElementById('noteHTTPS').classList.add('show');
+    } else if(err.name==='NetworkError'){
+      log('ERROR de red — asegurate que el ESP32 está encendido y advertising','le');
+    } else {
+      log('ERROR ['+err.name+']: '+err.message,'le');
+      log('Tip: ESP32 encendido? HTTPS o localhost? Chrome Android?','lw');
+    }
     setBtnState('idle');
   }
 }
@@ -529,19 +544,26 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
-log('THLS Scanner v0.2 iniciado','li');
+log('THLS Scanner v0.3 iniciado','li');
 log('Service UUID: '+SVC,'l');
-if(/iPad|iPhone|iPod/.test(navigator.userAgent)||
-   (typeof navigator.bluetooth==='undefined'&&!/Chrome/.test(navigator.userAgent))){
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const isHTTPS = location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1';
+if(isIOS){
   document.getElementById('noteIOS').classList.add('show');
-  log('iOS/Safari detectado — Web Bluetooth no disponible','le');
+  log('iOS/Safari detectado — Web Bluetooth NO disponible','le');
   log('Usa el botón SIMULAR para probar la interfaz','lw');
-}else if(typeof navigator.bluetooth==='undefined'){
+} else if(!isHTTPS){
   document.getElementById('noteHTTPS').classList.add('show');
-  log('Bluetooth API no detectada — ¿HTTPS/localhost?','le');
-}else{
+  log('⚠ HTTP detectado — Web Bluetooth requiere HTTPS o localhost','lw');
+  log('Sirve con: python3 -m http.server 8080  (abre en localhost:8080)','l');
+  log('O sube a Netlify Drop para HTTPS instantáneo','l');
+} else if(typeof navigator.bluetooth==='undefined'){
+  document.getElementById('noteHTTPS').classList.add('show');
+  log('Web Bluetooth no disponible — usa Chrome en Android','le');
+} else {
   log('Web Bluetooth disponible ✓','li');
   log('Asegúrate que el ESP32 está encendido y en modo advertising','l');
+  log('Si el selector aparece vacío: verifica que el nombre comience con THLS-','lw');
 }
 </script>
 </body>
