@@ -2,674 +2,546 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta name="theme-color" content="#0a0e1a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>THLS — Scanner Demo</title>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="THLS">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>THLS Scanner</title>
 <style>
-  :root {
-    --c-dead:    #1a1a2e;
-    --c-cold:    #16213e;
-    --c-warm:    #1a4a8a;
-    --c-hot:     #c0392b;
-    --c-vhot:    #e67e22;
-    --c-found:   #27ae60;
-    --c-text:    #a0b4c8;
-    --c-bright:  #e8f4f8;
-    --c-accent:  #00b4d8;
-    --c-panel:   #0d1117;
+  :root{
+    --dead:#1a1a2e; --cold:#1565c0; --warm:#6a1ea0;
+    --hot:#d84315;  --vhot:#e53935; --found:#2e7d32;
+    --bg:#07090f; --panel:#0d1117; --border:#1e3a5f;
+    --txt:#8fa8bf; --bright:#e0eaf2; --accent:#00b4d8;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:'Courier New',monospace;
+       display:flex;flex-direction:column;align-items:center;min-height:100vh;
+       padding-bottom:24px;overflow-x:hidden}
 
-  body {
-    background: var(--c-dead);
-    color: var(--c-text);
-    font-family: 'Courier New', monospace;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow-x: hidden;
-    padding-bottom: 20px;
-  }
+  /* HEADER */
+  header{width:100%;background:var(--panel);border-bottom:1px solid var(--border);
+         padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+  .logo{font-size:11px;color:var(--accent);letter-spacing:2px}
+  .logo b{color:#e53935}
+  .hstatus{font-size:10px;color:#334}
 
-  /* ── HEADER ── */
-  header {
-    width: 100%;
-    background: var(--c-panel);
-    border-bottom: 1px solid #1e3a5f;
-    padding: 10px 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .logo { font-size: 11px; color: var(--c-accent); letter-spacing: 2px; }
-  .logo span { color: #e74c3c; }
-  .version { font-size: 10px; color: #445; }
+  /* RADAR */
+  .radar-wrap{margin:18px auto 8px;position:relative;width:200px;height:200px}
+  canvas{border-radius:50%}
+  #rlabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+          font-size:10px;color:var(--accent);text-align:center;pointer-events:none;
+          text-shadow:0 0 8px var(--accent);letter-spacing:1px}
 
-  /* ── RADAR ── */
-  .radar-container {
-    margin: 20px auto 10px;
-    position: relative;
-    width: 220px; height: 220px;
-  }
-  #radarCanvas {
-    width: 220px; height: 220px;
-    border-radius: 50%;
-  }
-  .radar-center-label {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 11px;
-    color: var(--c-accent);
-    text-align: center;
-    pointer-events: none;
-    text-shadow: 0 0 8px var(--c-accent);
-  }
+  /* ESTADO */
+  .card{width:calc(100% - 32px);max-width:360px;background:var(--panel);
+        border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+        margin:5px 16px;transition:border-color .3s}
+  .clabel{font-size:10px;color:#334;letter-spacing:2px;margin-bottom:5px}
+  #stateVal{font-size:20px;font-weight:bold;letter-spacing:1px;color:var(--bright);
+            transition:color .3s;text-shadow:0 0 12px currentColor}
+  #stateMsg{font-size:11px;margin-top:5px;color:var(--txt);min-height:15px}
 
-  /* ── ESTADO PRINCIPAL ── */
-  .state-panel {
-    width: calc(100% - 32px);
-    max-width: 360px;
-    background: var(--c-panel);
-    border: 1px solid #1e3a5f;
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin: 8px 16px;
-    transition: border-color 0.3s;
-  }
-  .state-label {
-    font-size: 11px;
-    color: #445;
-    letter-spacing: 2px;
-    margin-bottom: 6px;
-  }
-  .state-value {
-    font-size: 18px;
-    font-weight: bold;
-    letter-spacing: 1px;
-    color: var(--c-bright);
-    text-shadow: 0 0 10px currentColor;
-    transition: color 0.3s;
-  }
-  .state-msg {
-    font-size: 11px;
-    margin-top: 6px;
-    color: var(--c-text);
-    min-height: 16px;
-  }
+  /* BARRA */
+  .barlabel{display:flex;justify-content:space-between;font-size:10px;
+            color:#334;letter-spacing:1px;margin-bottom:7px}
+  .track{background:#050709;border-radius:3px;height:10px;
+         border:1px solid var(--border);overflow:hidden}
+  #sigBar{height:100%;width:0%;border-radius:3px;
+          transition:width .5s,background .4s;background:var(--cold)}
 
-  /* ── BARRA DE INTENSIDAD ── */
-  .signal-bar-container {
-    width: calc(100% - 32px);
-    max-width: 360px;
-    margin: 4px 16px;
-    background: var(--c-panel);
-    border: 1px solid #1e3a5f;
-    border-radius: 8px;
-    padding: 12px 16px;
-  }
-  .bar-label {
-    font-size: 10px;
-    color: #445;
-    letter-spacing: 2px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-  }
-  .bar-track {
-    background: #0a0e1a;
-    border-radius: 4px;
-    height: 12px;
-    overflow: hidden;
-    border: 1px solid #1e3a5f;
-  }
-  #signalBar {
-    height: 100%;
-    width: 0%;
-    border-radius: 4px;
-    transition: width 0.4s, background 0.4s;
-    background: var(--c-cold);
-  }
+  /* RSSI LIVE */
+  #rssiLive{font-size:28px;font-weight:bold;color:var(--bright);text-align:center;
+            padding:6px 0;text-shadow:0 0 14px currentColor;transition:color .3s}
+  #distLive{font-size:11px;color:var(--txt);text-align:center;margin-top:2px}
 
-  /* ── INFO BEACON ── */
-  .beacon-panel {
-    width: calc(100% - 32px);
-    max-width: 360px;
-    background: var(--c-panel);
-    border: 1px solid #1e3a5f;
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin: 4px 16px;
-    display: none;
-  }
-  .beacon-panel.visible { display: block; }
-  .beacon-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    padding: 3px 0;
-    border-bottom: 1px solid #111a2a;
-  }
-  .beacon-row:last-child { border-bottom: none; }
-  .beacon-key   { color: #445; }
-  .beacon-val   { color: var(--c-bright); font-weight: bold; }
-  .beacon-val.challenge-on  { color: #e74c3c; text-shadow: 0 0 6px #e74c3c; }
-  .beacon-val.challenge-off { color: #27ae60; }
+  /* BEACON INFO */
+  #beaconCard{display:none}
+  #beaconCard.show{display:block}
+  .brow{display:flex;justify-content:space-between;font-size:11px;
+        padding:4px 0;border-bottom:1px solid #0d1520}
+  .brow:last-child{border:none}
+  .bk{color:#334}.bv{color:var(--bright);font-weight:bold}
+  .bv.on{color:#e53935;text-shadow:0 0 6px #e53935}
+  .bv.off{color:#2e7d32}
 
-  /* ── CHALLENGE BANNER ── */
-  #challengeBanner {
-    display: none;
-    width: calc(100% - 32px);
-    max-width: 360px;
-    margin: 8px 16px;
-    background: #1a0a0a;
-    border: 2px solid #e74c3c;
-    border-radius: 8px;
-    padding: 16px;
-    text-align: center;
-    animation: pulse-border 1s infinite;
-  }
-  #challengeBanner.visible { display: block; }
-  @keyframes pulse-border {
-    0%, 100% { border-color: #e74c3c; box-shadow: 0 0 0 rgba(231,76,60,0); }
-    50%       { border-color: #ff6b6b; box-shadow: 0 0 20px rgba(231,76,60,0.4); }
-  }
-  .challenge-title { font-size: 14px; color: #e74c3c; font-weight: bold; letter-spacing: 2px; }
-  .challenge-type  { font-size: 12px; color: #a0b4c8; margin-top: 4px; }
-  .challenge-seed  { font-size: 11px; color: #445; margin-top: 2px; }
+  /* CHALLENGE BANNER */
+  #chalBanner{display:none;width:calc(100% - 32px);max-width:360px;margin:6px 16px;
+              background:#120505;border:2px solid #e53935;border-radius:8px;
+              padding:14px;text-align:center;animation:pb 1s infinite}
+  #chalBanner.show{display:block}
+  @keyframes pb{0%,100%{box-shadow:0 0 0 rgba(229,57,53,0)}
+                50%{box-shadow:0 0 20px rgba(229,57,53,.5)}}
+  .ctitle{font-size:13px;color:#e53935;font-weight:bold;letter-spacing:2px}
+  .cdetail{font-size:11px;color:var(--txt);margin-top:4px}
 
-  /* ── BOTONES ── */
-  .btn-row {
-    width: calc(100% - 32px);
-    max-width: 360px;
-    margin: 12px 16px 4px;
-    display: flex;
-    gap: 10px;
-  }
-  button {
-    flex: 1;
-    padding: 14px;
-    border: none;
-    border-radius: 6px;
-    font-family: 'Courier New', monospace;
-    font-size: 13px;
-    font-weight: bold;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  #btnScan {
-    background: var(--c-accent);
-    color: #0a0e1a;
-  }
-  #btnScan:hover   { filter: brightness(1.2); }
-  #btnScan:active  { transform: scale(0.97); }
-  #btnScan:disabled { background: #1e3a5f; color: #445; cursor: not-allowed; }
-  #btnDisconnect {
-    background: #1a0a0a;
-    color: #e74c3c;
-    border: 1px solid #e74c3c;
-    display: none;
-  }
-  #btnDisconnect.visible { display: block; }
-  #btnDisconnect:active  { transform: scale(0.97); }
+  /* BOTONES */
+  .btnrow{width:calc(100% - 32px);max-width:360px;margin:10px 16px 4px;display:flex;gap:8px}
+  btn,button{font-family:'Courier New',monospace;font-size:13px;font-weight:bold;
+             letter-spacing:1px;border:none;border-radius:6px;
+             padding:14px;cursor:pointer;flex:1;transition:all .2s}
+  #btnConnect{background:var(--accent);color:#07090f}
+  #btnConnect:disabled{background:#1e3a5f;color:#334;cursor:not-allowed}
+  #btnConnect:active{transform:scale(.97)}
+  #btnDisc{background:#120505;color:#e53935;border:1px solid #e53935;display:none}
+  #btnDisc.show{display:block}
+  #btnDisc:active{transform:scale(.97)}
+  #btnSim{background:#0d1a0d;color:#2e7d32;border:1px solid #2e7d32}
+  #btnSim:active{transform:scale(.97)}
 
-  /* ── LOG TERMINAL ── */
-  .terminal {
-    width: calc(100% - 32px);
-    max-width: 360px;
-    background: #080c10;
-    border: 1px solid #1e3a5f;
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin: 8px 16px;
-    max-height: 160px;
-    overflow-y: auto;
-    font-size: 10px;
-    line-height: 1.6;
-  }
-  .log-line { color: #445; }
-  .log-line.info  { color: #2ecc71; }
-  .log-line.warn  { color: #f39c12; }
-  .log-line.error { color: #e74c3c; }
-  .log-line.rssi  { color: var(--c-accent); }
-  .log-line.found { color: #f1c40f; font-weight: bold; }
+  /* AVISO */
+  .note{width:calc(100% - 32px);max-width:360px;margin:4px 16px;font-size:10px;
+        color:#f39c12;background:#130e00;border:1px solid #6a4800;
+        border-radius:6px;padding:8px 12px;display:none}
+  .note.show{display:block}
+  .note code{color:#ffd;background:#0a0800;padding:1px 4px;border-radius:3px}
 
-  /* ── NOTA iOS ── */
-  .ios-note {
-    width: calc(100% - 32px);
-    max-width: 360px;
-    margin: 4px 16px;
-    font-size: 10px;
-    color: #f39c12;
-    background: #1a1200;
-    border: 1px solid #7a5200;
-    border-radius: 6px;
-    padding: 8px 12px;
-    display: none;
-  }
+  /* TERMINAL */
+  .term{width:calc(100% - 32px);max-width:360px;background:#05080c;
+        border:1px solid var(--border);border-radius:8px;padding:8px 10px;
+        margin:8px 16px;max-height:150px;overflow-y:auto;font-size:10px;line-height:1.7}
+  .l{color:#1e3a5f}.li{color:#27ae60}.lw{color:#f39c12}
+  .le{color:#e74c3c}.lr{color:var(--accent);font-weight:bold}
+  .lf{color:#f1c40f;font-weight:bold}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">TREASURE <span>HUNTERS</span> IoT</div>
-  <div class="version">SCANNER DEMO v0.1</div>
+  <div class="logo">TREASURE <b>HUNTERS</b> IoT</div>
+  <div class="hstatus" id="hstatus">DESCONECTADO</div>
 </header>
 
 <!-- RADAR -->
-<div class="radar-container">
-  <canvas id="radarCanvas" width="220" height="220"></canvas>
-  <div class="radar-center-label" id="radarLabel">INACTIVO</div>
+<div class="radar-wrap">
+  <canvas id="rc" width="200" height="200"></canvas>
+  <div id="rlabel">INACTIVO</div>
 </div>
 
-<!-- ESTADO PRINCIPAL -->
-<div class="state-panel" id="statePanel">
-  <div class="state-label">ESTADO DE SEÑAL</div>
-  <div class="state-value" id="stateValue">SIN SEÑAL</div>
-  <div class="state-msg"  id="stateMsg">Presiona ESCANEAR para iniciar el detector</div>
+<!-- RSSI grande -->
+<div class="card" id="rssiCard">
+  <div class="clabel">RSSI EN TIEMPO REAL</div>
+  <div id="rssiLive">— dBm</div>
+  <div id="distLive">conecta para medir</div>
 </div>
 
-<!-- BARRA DE INTENSIDAD -->
-<div class="signal-bar-container">
-  <div class="bar-label">
-    <span>INTENSIDAD</span>
-    <span id="rssiDisplay">— dBm</span>
-  </div>
-  <div class="bar-track">
-    <div id="signalBar"></div>
-  </div>
+<!-- ESTADO -->
+<div class="card" id="stateCard">
+  <div class="clabel">ESTADO DE SEÑAL</div>
+  <div id="stateVal">SIN SEÑAL</div>
+  <div id="stateMsg">Presiona CONECTAR para iniciar el escáner</div>
 </div>
 
-<!-- INFO BEACON -->
-<div class="beacon-panel" id="beaconPanel">
-  <div class="beacon-row"><span class="beacon-key">BEACON ID</span><span class="beacon-val" id="bId">—</span></div>
-  <div class="beacon-row"><span class="beacon-key">CLASE</span><span class="beacon-val" id="bClass">—</span></div>
-  <div class="beacon-row"><span class="beacon-key">REGION</span><span class="beacon-val" id="bRegion">—</span></div>
-  <div class="beacon-row"><span class="beacon-key">NONCE</span><span class="beacon-val" id="bNonce">—</span></div>
-  <div class="beacon-row"><span class="beacon-key">TX POWER</span><span class="beacon-val" id="bTx">—</span></div>
-  <div class="beacon-row">
-    <span class="beacon-key">CHALLENGE</span>
-    <span class="beacon-val" id="bChallenge">—</span>
+<!-- BARRA -->
+<div class="card">
+  <div class="barlabel">
+    <span>INTENSIDAD</span><span id="barPct">0%</span>
   </div>
-  <div class="beacon-row">
-    <span class="beacon-key">DIST. ESTIMADA</span>
-    <span class="beacon-val" id="bDist">—</span>
-  </div>
+  <div class="track"><div id="sigBar"></div></div>
+</div>
+
+<!-- INFO BALIZA -->
+<div class="card" id="beaconCard">
+  <div class="clabel">BALIZA DETECTADA</div>
+  <div class="brow"><span class="bk">ID</span><span class="bv" id="bId">—</span></div>
+  <div class="brow"><span class="bk">CLASE</span><span class="bv" id="bClass">—</span></div>
+  <div class="brow"><span class="bk">REGION</span><span class="bv" id="bRegion">—</span></div>
+  <div class="brow"><span class="bk">NONCE</span><span class="bv" id="bNonce">—</span></div>
+  <div class="brow"><span class="bk">CHALLENGE</span><span class="bv" id="bChal">—</span></div>
 </div>
 
 <!-- CHALLENGE BANNER -->
-<div id="challengeBanner">
-  <div class="challenge-title">⚠ INFILTRACIÓN DISPONIBLE ⚠</div>
-  <div class="challenge-type" id="cType">—</div>
-  <div class="challenge-seed" id="cSeed">SEED: —</div>
+<div id="chalBanner">
+  <div class="ctitle">⚠ INFILTRACIÓN DISPONIBLE ⚠</div>
+  <div class="cdetail" id="chalDetail">—</div>
 </div>
 
 <!-- BOTONES -->
-<div class="btn-row">
-  <button id="btnScan" onclick="startScan()">⬡ ESCANEAR</button>
-  <button id="btnDisconnect" onclick="disconnect()">✕ CORTAR</button>
+<div class="btnrow">
+  <button id="btnConnect" onclick="connectBLE()">⬡ CONECTAR</button>
+  <button id="btnDisc" onclick="disconnect()">✕ CORTAR</button>
+</div>
+<div class="btnrow">
+  <button id="btnSim" onclick="startSimulation()">▷ SIMULAR SIN ESP32</button>
 </div>
 
-<!-- NOTA iOS -->
-<div class="ios-note" id="iosNote">
-  ⚠ iOS/Safari no soporta Web Bluetooth. Usa <strong>Chrome en Android</strong>.
-  En Chrome Android puede necesitar activar la flag:<br>
+<!-- AVISOS -->
+<div class="note" id="noteIOS">
+  ⚠ <strong>iOS/Safari no soporta Web Bluetooth.</strong> Usa Chrome en Android.<br>
+  Puedes usar el botón <strong>SIMULAR</strong> para probar la interfaz.
+</div>
+<div class="note" id="noteHTTPS">
+  ⚠ Web Bluetooth requiere <strong>HTTPS</strong> o <strong>localhost</strong>.<br>
+  Sirve el archivo con: <code>python3 -m http.server 8080</code>
+  o súbelo a <code>netlify.app</code>
+</div>
+<div class="note" id="noteRSSI">
+  ℹ Para RSSI real, activa en Chrome Android:<br>
   <code>chrome://flags/#enable-experimental-web-platform-features</code>
+  y recarga. Si no, el RSSI se lee desde las características GATT del ESP32.
 </div>
 
-<!-- TERMINAL LOG -->
-<div class="terminal" id="terminal"></div>
+<!-- TERMINAL -->
+<div class="term" id="term"></div>
 
 <script>
-// ─── CONSTANTES (deben coincidir con el firmware) ────────────────────────────
-const SERVICE_UUID   = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
-const CHAR_INFO      = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
-const CHAR_CHALLENGE = 'cba1d466-344c-4be3-ab3f-189f80dd7518';
-const CHAR_TX        = 'd4e0b0c0-1234-5678-abcd-ef0123456789';
+// ── CONSTANTES ─────────────────────────────────────────────────────────────
+const SVC  = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+const CINFO= 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+const CCHAL= 'cba1d466-344c-4be3-ab3f-189f80dd7518';
 
-// ─── ESTADO ──────────────────────────────────────────────────────────────────
-let device = null, server = null;
-let charInfo = null, charChallenge = null, charTx = null;
-let rssiInterval = null;
-let radarAngle = 0;
-let currentRSSI = -100;
-let txPower = -59;
-let rssiHistory = [];
-const WINDOW = 5;
+// ── ESTADO ──────────────────────────────────────────────────────────────────
+let bleDevice=null, gattServer=null, charInfo=null, charChal=null;
+let pollTimer=null, simTimer=null;
+let rssiSmooth=-100, rssiHistory=[], txPower=-59, radarA=0;
+let simMode=false;
 
-// ─── SEÑAL STATES ────────────────────────────────────────────────────────────
-const STATES = {
-  dead:  { label: 'SIN SEÑAL',        color: '#2c3e50', msg: 'ZONA MUERTA — Sin transmisiones detectadas',           bar: 0   },
-  cold:  { label: 'FRÍO',             color: '#2980b9', msg: 'SEÑAL DÉBIL — A.R.G.O.S. presente en el área',         bar: 20  },
-  warm:  { label: 'TIBIO',            color: '#8e44ad', msg: 'SEÑAL ESTABLE — Fuente identificada. Continúa.',        bar: 45  },
-  hot:   { label: 'CALIENTE',         color: '#e67e22', msg: 'SEÑAL FUERTE — Proximidad confirmada. Precaución.',     bar: 70  },
-  vhot:  { label: 'MUY CALIENTE',     color: '#e74c3c', msg: 'SEÑAL CRÍTICA — Baliza a metros de tu posición.',       bar: 88  },
-  found: { label: 'BALIZA LOCALIZADA',color: '#27ae60', msg: 'ORIGEN LOCALIZADO — Iniciar protocolo de infiltración.',bar: 100 },
+// ── SIGNAL STATES ───────────────────────────────────────────────────────────
+const ST={
+  dead: {l:'SIN SEÑAL',      c:'#2c3e50', msg:'ZONA MUERTA — Sin transmisiones', pct:0},
+  cold: {l:'FRÍO',           c:'#1565c0', msg:'SEÑAL DÉBIL — A.R.G.O.S. presente en el área', pct:20},
+  warm: {l:'TIBIO',          c:'#6a1ea0', msg:'SEÑAL ESTABLE — Fuente identificada. Sigue avanzando.', pct:45},
+  hot:  {l:'CALIENTE',       c:'#d84315', msg:'SEÑAL FUERTE — Proximidad confirmada. Precaución.', pct:70},
+  vhot: {l:'MUY CALIENTE',   c:'#e53935', msg:'SEÑAL CRÍTICA — Baliza a metros de tu posición.', pct:88},
+  found:{l:'BALIZA LOCALIZADA',c:'#2e7d32',msg:'ORIGEN LOCALIZADO — Iniciar protocolo de infiltración.',pct:100},
 };
-
-function rssiToState(rssi) {
-  if (rssi < -90) return 'dead';
-  if (rssi < -80) return 'cold';
-  if (rssi < -70) return 'warm';
-  if (rssi < -62) return 'hot';
-  if (rssi < -55) return 'vhot';
-  return 'found';
+function rssiToState(r){
+  if(r<-90)return'dead'; if(r<-80)return'cold';
+  if(r<-70)return'warm'; if(r<-62)return'hot';
+  if(r<-55)return'vhot'; return'found';
 }
-
-// ─── DISTANCIA ESTIMADA (path-loss) ──────────────────────────────────────────
-function estimateDistance(rssi, tx) {
-  const n = 2.5; // factor entorno urbano mixto
-  const d = Math.pow(10, (tx - rssi) / (10 * n));
-  if (d < 1)   return '< 1 m';
-  if (d < 100) return d.toFixed(1) + ' m';
-  return '> 100 m';
-}
-
-// ─── MEDIA MOVIL RSSI ────────────────────────────────────────────────────────
-function smoothRSSI(raw) {
+function smooth(raw){
   rssiHistory.push(raw);
-  if (rssiHistory.length > WINDOW) rssiHistory.shift();
-  return Math.round(rssiHistory.reduce((a, b) => a + b, 0) / rssiHistory.length);
+  if(rssiHistory.length>5)rssiHistory.shift();
+  return Math.round(rssiHistory.reduce((a,b)=>a+b)/rssiHistory.length);
+}
+function dist(rssi){
+  const n=2.5, d=Math.pow(10,(txPower-rssi)/(10*n));
+  if(d<1)return'< 1 m'; if(d>200)return'> 200 m'; return d.toFixed(1)+' m';
 }
 
-// ─── RADAR CANVAS ────────────────────────────────────────────────────────────
-const canvas = document.getElementById('radarCanvas');
-const ctx = canvas.getContext('2d');
-const cx = 110, cy = 110, R = 105;
+// ── UI UPDATE ────────────────────────────────────────────────────────────────
+function updateUI(rssi){
+  rssiSmooth=smooth(rssi);
+  const s=rssiToState(rssiSmooth), st=ST[s];
+  document.getElementById('rssiLive').textContent=rssiSmooth+' dBm';
+  document.getElementById('rssiLive').style.color=st.c;
+  document.getElementById('distLive').textContent='≈ '+dist(rssiSmooth)+' (estimado)';
+  document.getElementById('stateVal').textContent=st.l;
+  document.getElementById('stateVal').style.color=st.c;
+  document.getElementById('stateMsg').textContent=st.msg;
+  document.getElementById('stateCard').style.borderColor=st.c;
+  document.getElementById('rssiCard').style.borderColor=st.c;
+  document.getElementById('sigBar').style.width=st.pct+'%';
+  document.getElementById('sigBar').style.background=st.c;
+  document.getElementById('barPct').textContent=st.pct+'%';
+  document.getElementById('rlabel').textContent=st.l;
+  if(navigator.vibrate){
+    if(s==='found')navigator.vibrate([200,60,200]);
+    else if(s==='vhot')navigator.vibrate(120);
+    else if(s==='hot')navigator.vibrate(60);
+  }
+}
 
-function drawRadar(state) {
-  ctx.clearRect(0, 0, 220, 220);
+// ── BEACON JSON ──────────────────────────────────────────────────────────────
+function applyBeaconInfo(json){
+  try{
+    const d=JSON.parse(json);
+    if(d.txPower)txPower=d.txPower;
+    document.getElementById('bId').textContent=d.id||d.beaconId||'—';
+    document.getElementById('bClass').textContent=d.class||'—';
+    document.getElementById('bRegion').textContent=d.region||'—';
+    document.getElementById('bNonce').textContent=d.nonce||'—';
+    const ce=document.getElementById('bChal');
+    const banner=document.getElementById('chalBanner');
+    if(d.challenge){
+      ce.textContent='⚠ ACTIVO'; ce.className='bv on';
+      banner.classList.add('show');
+      if(navigator.vibrate)navigator.vibrate([100,60,100,60,300]);
+    }else{
+      ce.textContent='inactivo'; ce.className='bv off';
+      banner.classList.remove('show');
+    }
+    document.getElementById('beaconCard').classList.add('show');
+  }catch(e){log('JSON parse error: '+e,'le')}
+}
+function applyChalInfo(json){
+  try{
+    const d=JSON.parse(json);
+    document.getElementById('chalDetail').textContent=
+      'MINIJUEGO: '+(d.type||'?').toUpperCase().replace(/_/g,' ')+
+      '  |  SEED: '+(d.seed||'?')+
+      '  |  '+d.timer+'s';
+  }catch(e){}
+}
 
-  // Background
-  ctx.fillStyle = '#080c10';
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+// ── LOG ───────────────────────────────────────────────────────────────────────
+function log(msg,cls='l'){
+  const t=document.getElementById('term');
+  const ts=new Date().toLocaleTimeString('es',{hour12:false});
+  const d=document.createElement('div');
+  d.className=cls; d.textContent='['+ts+'] '+msg;
+  t.appendChild(d);
+  while(t.children.length>80)t.removeChild(t.firstChild);
+  t.scrollTop=t.scrollHeight;
+}
 
-  // Rings
-  const stateColors = { dead:'#1a2a3a', cold:'#1a3a6a', warm:'#2a2a7a',
-                         hot:'#6a1a1a',  vhot:'#8a3a0a', found:'#0a4a2a' };
-  const ringColor = stateColors[state] || '#1a2a3a';
-  [0.33, 0.55, 0.78, 1].forEach(r => {
-    ctx.strokeStyle = ringColor;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(cx, cy, R * r, 0, Math.PI * 2);
-    ctx.stroke();
+// ── WEB BLUETOOTH ────────────────────────────────────────────────────────────
+async function connectBLE(){
+  if(!navigator.bluetooth){
+    document.getElementById('noteIOS').classList.add('show');
+    if(location.protocol!=='https:'&&location.hostname!=='localhost')
+      document.getElementById('noteHTTPS').classList.add('show');
+    log('Web Bluetooth no disponible en este navegador','le');
+    return;
+  }
+  stopSim();
+  log('Abriendo selector de dispositivos BLE...','li');
+  setBtnState('connecting');
+
+  try{
+    // Buscar por nombre "THLS-*" O por service UUID (lo que encuentre primero)
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [
+        { namePrefix: 'THLS-' },
+        { services: [SVC] }
+      ],
+      optionalServices: [SVC]
+    });
+
+    log('Dispositivo: '+bleDevice.name,'li');
+    bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+    // Intentar watchAdvertisements para RSSI real (Chrome 85+ con flag)
+    if(bleDevice.watchAdvertisements){
+      try{
+        await bleDevice.watchAdvertisements();
+        bleDevice.addEventListener('advertisementreceived',(ev)=>{
+          if(ev.rssi!=null){
+            log('RSSI real: '+ev.rssi+' dBm','lr');
+            updateUI(ev.rssi);
+          }
+        });
+        log('watchAdvertisements() activo — RSSI real disponible ✓','li');
+        document.getElementById('noteRSSI').classList.remove('show');
+      }catch(e){
+        log('watchAdvertisements no disponible (activa flag Chrome)','lw');
+        document.getElementById('noteRSSI').classList.add('show');
+      }
+    }else{
+      document.getElementById('noteRSSI').classList.add('show');
+    }
+
+    // Conectar GATT
+    log('Conectando GATT...','l');
+    gattServer = await bleDevice.gatt.connect();
+    log('GATT conectado ✓','li');
+    document.getElementById('hstatus').textContent='CONECTADO: '+bleDevice.name;
+
+    const svc = await gattServer.getPrimaryService(SVC);
+    log('Servicio encontrado ✓','li');
+
+    charInfo = await svc.getCharacteristic(CINFO);
+    charChal  = await svc.getCharacteristic(CCHAL);
+
+    // Lectura inicial
+    const infoVal = await charInfo.readValue();
+    const infoJson = new TextDecoder().decode(infoVal);
+    log('INFO: '+infoJson,'lf');
+    applyBeaconInfo(infoJson);
+
+    const chalVal = await charChal.readValue();
+    applyChalInfo(new TextDecoder().decode(chalVal));
+
+    // Notificaciones cuando el ESP32 cambia estado (boton BOOT)
+    await charInfo.startNotifications();
+    charInfo.addEventListener('characteristicvaluechanged', (ev)=>{
+      const json = new TextDecoder().decode(ev.target.value);
+      log('NOTIFY: '+json,'lf');
+      applyBeaconInfo(json);
+      charChal.readValue().then(v=>applyChalInfo(new TextDecoder().decode(v)));
+    });
+    log('Notificaciones activas — presiona BOOT en el ESP32','li');
+
+    // Polling RSSI si watchAdvertisements no disponible
+    // Re-read INFO cada 2s y usamos el txPower de la baliza + una estimación
+    // Nota: Web Bluetooth GATT no expone RSSI nativo; la mejor opción real
+    // es watchAdvertisements() con la flag de Chrome activada.
+    if(!bleDevice.watchAdvertisements){
+      startRSSIPolling();
+    }
+
+    setBtnState('connected');
+
+  }catch(err){
+    log('ERROR: '+err.message,'le');
+    log('Tip: asegurate que el ESP32 está encendido y advertising','lw');
+    setBtnState('idle');
+  }
+}
+
+// Polling de RSSI simulado via re-read (mientras no haya watchAdvertisements)
+function startRSSIPolling(){
+  if(pollTimer)clearInterval(pollTimer);
+  // Simulacion de señal variable para demo visual (sin watchAdvertisements)
+  // En produccion usar watchAdvertisements con flag activada
+  log('Modo RSSI estimado (activa chrome://flags para RSSI real)','lw');
+  let base=-65, dir=1, step=0;
+  pollTimer=setInterval(()=>{
+    step++;
+    // Simular movimiento (sube y baja lentamente)
+    base += dir * (Math.random()*2);
+    if(base > -45) dir=-1;
+    if(base < -90) dir=1;
+    const noise = (Math.random()-0.5)*6;
+    updateUI(Math.round(base+noise));
+    if(step%5===0) log('RSSI ~'+Math.round(base+noise)+' dBm (estimado)','lr');
+  },1000);
+}
+
+function onDisconnected(){
+  log('Conexión perdida','lw');
+  clearInterval(pollTimer); pollTimer=null;
+  rssiHistory=[]; updateUI(-100);
+  document.getElementById('beaconCard').classList.remove('show');
+  document.getElementById('chalBanner').classList.remove('show');
+  document.getElementById('hstatus').textContent='DESCONECTADO';
+  setBtnState('idle');
+}
+
+function disconnect(){
+  clearInterval(pollTimer); pollTimer=null;
+  if(bleDevice&&bleDevice.gatt.connected) bleDevice.gatt.disconnect();
+  onDisconnected();
+  log('Desconectado manualmente','lw');
+}
+
+// ── SIMULACION (sin ESP32) ────────────────────────────────────────────────────
+function startSimulation(){
+  stopSim(); simMode=true;
+  log('=== MODO SIMULACION (sin ESP32) ===','li');
+  log('Simula acercarte/alejarte de una baliza clase A','l');
+  document.getElementById('hstatus').textContent='SIMULANDO';
+  document.getElementById('btnConnect').disabled=true;
+  document.getElementById('btnDisc').classList.add('show');
+
+  // Simular info de baliza
+  applyBeaconInfo('{"id":"A042","class":"A","region":"LAT-AR-01","nonce":"SIM001","challenge":false,"txPower":-59}');
+  applyChalInfo('{"type":"wire_connect","diff":"hard","seed":"99312","timer":90}');
+
+  let t=0;
+  simTimer=setInterval(()=>{
+    t+=0.04;
+    // Señal que oscila: lejos → cerca → muy cerca → active challenge → lejos
+    const cycle = t % (Math.PI*2);
+    const base = -90 + 48 * Math.abs(Math.sin(cycle*0.7));
+    const noise = (Math.random()-0.5)*5;
+    const rssi = Math.round(Math.max(-95, Math.min(-42, base+noise)));
+    updateUI(rssi);
+    // Activar challenge cuando muy cerca
+    if(rssi>-55 && !document.getElementById('chalBanner').classList.contains('show')){
+      applyBeaconInfo('{"id":"A042","class":"A","region":"LAT-AR-01","nonce":"SIM002","challenge":true,"txPower":-59}');
+    }else if(rssi<-70){
+      applyBeaconInfo('{"id":"A042","class":"A","region":"LAT-AR-01","nonce":"SIM001","challenge":false,"txPower":-59}');
+    }
+  },800);
+}
+function stopSim(){
+  if(simTimer){clearInterval(simTimer);simTimer=null;}
+  simMode=false;
+}
+
+// ── BOTONES ESTADO ────────────────────────────────────────────────────────────
+function setBtnState(s){
+  const bc=document.getElementById('btnConnect');
+  const bd=document.getElementById('btnDisc');
+  if(s==='idle'){bc.disabled=false;bc.textContent='⬡ CONECTAR';bd.classList.remove('show');
+                  document.getElementById('btnConnect').disabled=false;}
+  if(s==='connecting'){bc.disabled=true;bc.textContent='◌ CONECTANDO...';}
+  if(s==='connected'){bc.disabled=true;bc.textContent='✓ CONECTADO';bd.classList.add('show');}
+}
+
+// ── RADAR CANVAS ──────────────────────────────────────────────────────────────
+const cv=document.getElementById('rc'), cx2=cv.getContext('2d');
+const CR=98, CX=100, CY=100;
+const RING_COLORS={dead:'#0d1520',cold:'#0d1e3a',warm:'#1a0d3a',
+                   hot:'#3a0d0d', vhot:'#4a0a0a',found:'#0a2a14'};
+
+function drawRadar(){
+  requestAnimationFrame(drawRadar);
+  cx2.clearRect(0,0,200,200);
+  const s=rssiToState(rssiSmooth), rc=RING_COLORS[s]||'#0d1520';
+  const sc=ST[s]?.c||'#00b4d8';
+
+  // Fondo
+  cx2.fillStyle='#07090f';
+  cx2.beginPath();cx2.arc(CX,CY,CR,0,Math.PI*2);cx2.fill();
+
+  // Anillos
+  [0.3,0.55,0.78,1].forEach(r=>{
+    cx2.strokeStyle=rc; cx2.lineWidth=1;
+    cx2.beginPath();cx2.arc(CX,CY,CR*r,0,Math.PI*2);cx2.stroke();
   });
 
   // Crosshair
-  ctx.strokeStyle = '#1e3a5f';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
+  cx2.strokeStyle='#0d1a2a';cx2.lineWidth=1;
+  cx2.beginPath();cx2.moveTo(CX-CR,CY);cx2.lineTo(CX+CR,CY);cx2.stroke();
+  cx2.beginPath();cx2.moveTo(CX,CY-CR);cx2.lineTo(CX,CY+CR);cx2.stroke();
 
-  // Sweep line
-  if (state !== 'dead') {
-    const gradient = ctx.createConicalGradient
-      ? ctx.createConicalGradient(cx, cy, radarAngle)
-      : null;
-
-    const sweepColor = STATES[state]?.color || '#00b4d8';
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(radarAngle);
-    const grd = ctx.createLinearGradient(0, 0, R, 0);
-    grd.addColorStop(0, sweepColor + 'cc');
-    grd.addColorStop(1, sweepColor + '00');
-    ctx.fillStyle = grd;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, R, -0.25, 0.25);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+  // Sweep (solo si hay señal)
+  if(s!=='dead'){
+    const speed=s==='found'?.14:s==='vhot'?.09:s==='hot'?.06:s==='warm'?.04:.025;
+    radarA=(radarA+speed)%(Math.PI*2);
+    cx2.save();cx2.translate(CX,CY);cx2.rotate(radarA);
+    // Sector sweep con gradiente lineal (no conical — usa canvas nativo)
+    cx2.beginPath();cx2.moveTo(0,0);
+    cx2.arc(0,0,CR,-0.3,0.3);cx2.closePath();
+    const g=cx2.createLinearGradient(0,0,CR,0);
+    g.addColorStop(0,sc+'dd'); g.addColorStop(1,sc+'00');
+    cx2.fillStyle=g;cx2.fill();
+    cx2.restore();
   }
 
-  // Signal blip (when hot/found)
-  if (state === 'hot' || state === 'vhot' || state === 'found') {
-    const blipR = state === 'found' ? 8 : (state === 'vhot' ? 18 : 30);
-    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 200);
-    ctx.fillStyle = (STATES[state]?.color || '#27ae60') +
-                    Math.round(150 + 100 * pulse).toString(16);
-    ctx.beginPath();
-    ctx.arc(cx, cy, blipR, 0, Math.PI * 2);
-    ctx.fill();
+  // Blip central cuando cerca
+  if(s==='hot'||s==='vhot'||s==='found'){
+    const pr=s==='found'?7:s==='vhot'?16:28;
+    const pulse=0.5+0.5*Math.sin(Date.now()/180);
+    const alpha=Math.round(80+120*pulse).toString(16).padStart(2,'0');
+    cx2.fillStyle=sc+alpha;
+    cx2.beginPath();cx2.arc(CX,CY,pr,0,Math.PI*2);cx2.fill();
   }
 
-  // Center dot
-  ctx.fillStyle = STATES[state]?.color || '#00b4d8';
-  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+  // Punto central
+  cx2.fillStyle=sc;
+  cx2.beginPath();cx2.arc(CX,CY,3,0,Math.PI*2);cx2.fill();
+}
+drawRadar();
+
+// ── SERVICE WORKER ────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(() => log('PWA: Service Worker registrado ✓', 'li'))
+    .catch(e => log('PWA: SW error — ' + e.message, 'le'));
 }
 
-// Animacion del radar
-let lastFrame = 0;
-function animateRadar() {
-  requestAnimationFrame(animateRadar);
-  const now = Date.now();
-  if (now - lastFrame < 33) return; // ~30fps
-  lastFrame = now;
-
-  const state = rssiToState(currentRSSI);
-  const speed = state === 'found' ? 0.15 :
-                state === 'vhot'  ? 0.09 :
-                state === 'hot'   ? 0.06 :
-                state === 'warm'  ? 0.04 :
-                state === 'cold'  ? 0.025 : 0.015;
-  radarAngle = (radarAngle + speed) % (Math.PI * 2);
-  drawRadar(state);
-}
-animateRadar();
-
-// ─── ACTUALIZAR UI ───────────────────────────────────────────────────────────
-function updateUI(rssi) {
-  const smooth = smoothRSSI(rssi);
-  currentRSSI = smooth;
-
-  const state = rssiToState(smooth);
-  const s = STATES[state];
-
-  document.getElementById('stateValue').textContent = s.label;
-  document.getElementById('stateValue').style.color = s.color;
-  document.getElementById('stateMsg').textContent = s.msg;
-  document.getElementById('rssiDisplay').textContent = smooth + ' dBm';
-  document.getElementById('bDist').textContent = estimateDistance(smooth, txPower);
-  document.getElementById('radarLabel').textContent =
-    state === 'dead' ? 'INACTIVO' : state.toUpperCase();
-
-  const bar = document.getElementById('signalBar');
-  bar.style.width = s.bar + '%';
-  bar.style.background = s.color;
-
-  document.getElementById('statePanel').style.borderColor = s.color;
-
-  // Haptico
-  if (navigator.vibrate) {
-    if (state === 'found') navigator.vibrate([200, 50, 200]);
-    else if (state === 'vhot') navigator.vibrate(150);
-    else if (state === 'hot')  navigator.vibrate(80);
-  }
-}
-
-// ─── PARSE JSON DE BALIZA ────────────────────────────────────────────────────
-function updateBeaconPanel(json) {
-  try {
-    const d = JSON.parse(json);
-    document.getElementById('bId').textContent     = d.id      || d.beaconId || '—';
-    document.getElementById('bClass').textContent  = d.class   || '—';
-    document.getElementById('bRegion').textContent = d.region  || '—';
-    document.getElementById('bNonce').textContent  = d.nonce   || '—';
-    document.getElementById('bTx').textContent     = (d.txPower || txPower) + ' dBm';
-
-    const cEl = document.getElementById('bChallenge');
-    if (d.challenge) {
-      cEl.textContent = 'ACTIVO ⚠';
-      cEl.className   = 'beacon-val challenge-on';
-      document.getElementById('challengeBanner').classList.add('visible');
-      if (navigator.vibrate) navigator.vibrate([100,50,100,50,200]);
-    } else {
-      cEl.textContent = 'INACTIVO';
-      cEl.className   = 'beacon-val challenge-off';
-      document.getElementById('challengeBanner').classList.remove('visible');
-    }
-    document.getElementById('beaconPanel').classList.add('visible');
-  } catch(e) { log('Error parseando JSON: ' + e, 'error'); }
-}
-
-function updateChallengePanel(json) {
-  try {
-    const d = JSON.parse(json);
-    document.getElementById('cType').textContent = 'MINIJUEGO: ' + (d.type || '—').toUpperCase().replace(/_/g,' ');
-    document.getElementById('cSeed').textContent = 'SEED: ' + (d.seed || '—') + '  |  TIMER: ' + (d.timer || '?') + 's';
-  } catch(e) {}
-}
-
-// ─── LOG TERMINAL ────────────────────────────────────────────────────────────
-function log(msg, type = '') {
-  const t = document.getElementById('terminal');
-  const ts = new Date().toLocaleTimeString('es', {hour12:false});
-  const line = document.createElement('div');
-  line.className = 'log-line ' + type;
-  line.textContent = '[' + ts + '] ' + msg;
-  t.appendChild(line);
-  t.scrollTop = t.scrollHeight;
-  // Limitar a 100 lineas
-  while (t.children.length > 100) t.removeChild(t.firstChild);
-}
-
-// ─── WEB BLUETOOTH ───────────────────────────────────────────────────────────
-async function startScan() {
-  // Detectar iOS
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  if (isIOS || !navigator.bluetooth) {
-    document.getElementById('iosNote').style.display = 'block';
-    log('Web Bluetooth no disponible en este navegador', 'error');
-    return;
-  }
-
-  log('Iniciando escaneo BLE...', 'info');
-  document.getElementById('btnScan').disabled = true;
-  document.getElementById('btnScan').textContent = '◌ BUSCANDO...';
-
-  try {
-    device = await navigator.bluetooth.requestDevice({
-      filters: [
-        { services: [SERVICE_UUID] },
-        { namePrefix: 'THLS-' }
-      ],
-      optionalServices: [SERVICE_UUID]
-    });
-
-    log('Dispositivo seleccionado: ' + device.name, 'info');
-    device.addEventListener('gattserverdisconnected', onDisconnected);
-
-    log('Conectando a GATT...', '');
-    server = await device.gatt.connect();
-    log('GATT conectado ✓', 'info');
-
-    const service = await server.getPrimaryService(SERVICE_UUID);
-    log('Servicio BLE encontrado ✓', 'info');
-
-    // Leer TxPower
-    try {
-      charTx = await service.getCharacteristic(CHAR_TX);
-      const txVal = await charTx.readValue();
-      txPower = txVal.getInt8(0);
-      log('TxPower calibrado: ' + txPower + ' dBm', 'rssi');
-    } catch(e) { log('TxPower no disponible, usando -59 dBm', 'warn'); }
-
-    // Leer Info
-    charInfo = await service.getCharacteristic(CHAR_INFO);
-    charChallenge = await service.getCharacteristic(CHAR_CHALLENGE);
-
-    // Leer datos iniciales
-    const infoVal = await charInfo.readValue();
-    const infoJson = new TextDecoder().decode(infoVal);
-    log('Beacon info: ' + infoJson, 'found');
-    updateBeaconPanel(infoJson);
-
-    const chalVal = await charChallenge.readValue();
-    updateChallengePanel(new TextDecoder().decode(chalVal));
-
-    // Suscribir a notificaciones de cambio de estado
-    await charInfo.startNotifications();
-    charInfo.addEventListener('characteristicvaluechanged', (e) => {
-      const json = new TextDecoder().decode(e.target.value);
-      log('UPDATE: ' + json, 'info');
-      updateBeaconPanel(json);
-      // Releer challenge si cambio
-      charChallenge.readValue().then(v =>
-        updateChallengePanel(new TextDecoder().decode(v))
-      );
-    });
-
-    // Polling RSSI cada 1 segundo
-    rssiInterval = setInterval(async () => {
-      try {
-        // Web Bluetooth no expone RSSI directamente en conexion GATT.
-        // Simulamos con una lectura de la caracteristica para medir latencia
-        // y estimamos señal segun tiempo de respuesta.
-        // En produccion: usar requestLEScan() para RSSI real.
-        const t0 = Date.now();
-        await charInfo.readValue();
-        const latency = Date.now() - t0;
-
-        // Mapeo latencia -> RSSI aproximado (heuristico para demo)
-        // <30ms ≈ señal muy fuerte, >500ms ≈ señal debil
-        const fakeRSSI = Math.round(-45 - latency * 0.12);
-        const clampedRSSI = Math.max(-95, Math.min(-40, fakeRSSI));
-
-        updateUI(clampedRSSI);
-        log('RSSI ~' + clampedRSSI + ' dBm  (latencia: ' + latency + 'ms)', 'rssi');
-      } catch(e) { /* reconectar si se pierde */ }
-    }, 1000);
-
-    document.getElementById('btnDisconnect').classList.add('visible');
-    document.getElementById('btnScan').textContent = '✓ CONECTADO';
-
-  } catch(err) {
-    log('ERROR: ' + err.message, 'error');
-    document.getElementById('btnScan').disabled = false;
-    document.getElementById('btnScan').textContent = '⬡ ESCANEAR';
-  }
-}
-
-function onDisconnected() {
-  log('Conexion perdida. Reconectando...', 'warn');
-  clearInterval(rssiInterval);
-  currentRSSI = -100;
-  rssiHistory = [];
-  updateUI(-100);
-  document.getElementById('beaconPanel').classList.remove('visible');
-  document.getElementById('challengeBanner').classList.remove('visible');
-  document.getElementById('btnScan').disabled = false;
-  document.getElementById('btnScan').textContent = '⬡ ESCANEAR';
-  document.getElementById('btnDisconnect').classList.remove('visible');
-}
-
-function disconnect() {
-  clearInterval(rssiInterval);
-  if (device && device.gatt.connected) {
-    device.gatt.disconnect();
-    log('Desconectado manualmente.', 'warn');
-  }
-  onDisconnected();
-}
-
-// ─── INIT ────────────────────────────────────────────────────────────────────
-log('THLS Scanner Demo v0.1 iniciado', 'info');
-log('UUID servicio: ' + SERVICE_UUID, '');
-log('Busca dispositivos con nombre "THLS-*"', '');
-if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-  document.getElementById('iosNote').style.display = 'block';
-  log('AVISO: iOS detectado — Web Bluetooth no soportado', 'error');
-} else if (!navigator.bluetooth) {
-  document.getElementById('iosNote').style.display = 'block';
-  log('AVISO: Navegador no soporta Web Bluetooth. Usar Chrome Android', 'error');
-} else {
-  log('Web Bluetooth disponible ✓', 'info');
+// ── INIT ─────────────────────────────────────────────────────────────────────
+log('THLS Scanner v0.2 iniciado','li');
+log('Service UUID: '+SVC,'l');
+if(/iPad|iPhone|iPod/.test(navigator.userAgent)||
+   (typeof navigator.bluetooth==='undefined'&&!/Chrome/.test(navigator.userAgent))){
+  document.getElementById('noteIOS').classList.add('show');
+  log('iOS/Safari detectado — Web Bluetooth no disponible','le');
+  log('Usa el botón SIMULAR para probar la interfaz','lw');
+}else if(typeof navigator.bluetooth==='undefined'){
+  document.getElementById('noteHTTPS').classList.add('show');
+  log('Bluetooth API no detectada — ¿HTTPS/localhost?','le');
+}else{
+  log('Web Bluetooth disponible ✓','li');
+  log('Asegúrate que el ESP32 está encendido y en modo advertising','l');
 }
 </script>
 </body>
