@@ -27,7 +27,6 @@
 #include <esp_task_wdt.h>
 #include <esp_idf_version.h>
 #include <Preferences.h>
-#include <ArduinoJson.h>
 
 // ── VERSIÓN ────────────────────────────────────────────
 #define FW_VERSION    "3.0.0"
@@ -77,27 +76,22 @@ int getClientRSSI() {
   return -100; // nadie conectado
 }
 
-// ── JSON de respuesta ─────────────────────────────────
+// ── JSON de respuesta (sin ArduinoJson — snprintf puro) ──
 String makeStatusJson() {
-  StaticJsonDocument<512> doc;
-  doc["v"]         = 3;
-  doc["fw"]        = FW_VERSION;
-  doc["id"]        = BEACON_ID;
-  doc["class"]     = BEACON_CLASS;
-  doc["region"]    = BEACON_REGION;
-  doc["rssi"]      = getClientRSSI();
-  doc["challenge"] = challengeActive;
-  doc["type"]      = CHALLENGE_TYPES[challengeSlot];
-  doc["seed"]      = CHALLENGE_SEEDS[challengeSlot];
-  doc["diff"]      = CHALLENGE_DIFFS[challengeSlot];
-  doc["timer"]     = 60;
-  doc["slot"]      = challengeSlot;
-  doc["nonce"]     = String(nonce, HEX);
-  doc["bat"]       = batVoltage;
-  doc["uptime"]    = millis() / 1000UL;
-  doc["clients"]   = WiFi.softAPgetStationNum();
-  String out; serializeJson(doc, out);
-  return out;
+  char buf[512];
+  snprintf(buf, sizeof(buf),
+    "{\"v\":3,\"fw\":\"%s\",\"id\":\"%s\",\"class\":\"%s\","
+    "\"region\":\"%s\",\"rssi\":%d,\"challenge\":%s,"
+    "\"type\":\"%s\",\"seed\":\"%s\",\"diff\":\"%s\","
+    "\"timer\":60,\"slot\":%d,\"nonce\":\"%04X\","
+    "\"bat\":%.2f,\"uptime\":%lu,\"clients\":%d}",
+    FW_VERSION, BEACON_ID, BEACON_CLASS,
+    BEACON_REGION, getClientRSSI(), challengeActive ? "true" : "false",
+    CHALLENGE_TYPES[challengeSlot], CHALLENGE_SEEDS[challengeSlot], CHALLENGE_DIFFS[challengeSlot],
+    challengeSlot, nonce,
+    batVoltage, millis() / 1000UL, WiFi.softAPgetStationNum()
+  );
+  return String(buf);
 }
 
 // ── CORS headers ──────────────────────────────────────
