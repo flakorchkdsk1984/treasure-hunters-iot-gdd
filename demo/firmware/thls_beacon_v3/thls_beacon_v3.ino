@@ -154,17 +154,31 @@ void handleRoot() {
 
 // ── BLE STANDBY ───────────────────────────────────────
 void initBLEStandby() {
-  String name = "THLS-" + String(BEACON_ID);
-  BLEDevice::init(name.c_str());
+  String devName = "THLS-" + String(BEACON_ID);
+  BLEDevice::init(devName.c_str());
   BLEDevice::setPower(ESP_PWR_LVL_P9);
-  BLEServer* pSrv = BLEDevice::createServer();
+
+  BLEServer*  pSrv = BLEDevice::createServer();
   BLEService* pSvc = pSrv->createService(BLE_SVC_UUID);
   pSvc->start();
+
   BLEAdvertising* pAdv = BLEDevice::getAdvertising();
-  pAdv->addServiceUUID(BLE_SVC_UUID);
-  pAdv->setScanResponse(true);
+
+  // Advertising data: flags + service UUID
+  BLEAdvertisementData advData;
+  advData.setFlags(0x06);                         // LE General Discoverable
+  advData.setCompleteServices(BLEUUID(BLE_SVC_UUID));
+  pAdv->setAdvertisementData(advData);
+
+  // Scan response: nombre completo (Chrome/Android lo lee aquí)
+  BLEAdvertisementData scanData;
+  scanData.setName(devName.c_str());
+  pAdv->setScanResponseData(scanData);
+
+  pAdv->setMinPreferred(0x06);
+  pAdv->setMaxPreferred(0x12);
   BLEDevice::startAdvertising();
-  Serial.printf("[BLE] Standby advertising: \"%s\"\n", name.c_str());
+  Serial.printf("[BLE] Standby: \"%s\" (scan response name activo)\n", devName.c_str());
 }
 
 // ── SETUP ─────────────────────────────────────────────
