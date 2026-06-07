@@ -95,7 +95,10 @@ struct LedBlinker {
   unsigned long t = 0;
 
   void play(const int16_t* pat, const int16_t* after = nullptr) {
-    pattern = pat; next = after; step = 0; on = false; t = millis();
+    pattern = pat; next = after; step = 0;
+    on = true;                      // enciende inmediatamente
+    digitalWrite(LED_PIN, HIGH);    // primer destello ya visible
+    t = millis();
   }
 
   void update() {
@@ -365,10 +368,10 @@ void setup() {
   for (int i = 0; i < 8; i++) { sum += analogRead(BAT_PIN); delay(2); }
   batVoltage = (sum / 8.0f) * (3.3f / 4095.0f) * 2.0f;
 
-  // WiFi AP
+  // WiFi AP — SIN CONTRASEÑA (red abierta para detección)
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(WIFI_SSID, WIFI_PASS);
-  Serial.printf("[WiFi] AP: \"%s\" | IP: %s\n", WIFI_SSID, WiFi.softAPIP().toString().c_str());
+  WiFi.softAP(WIFI_SSID);   // open network
+  Serial.printf("[WiFi] AP abierto: \"%s\" | IP: %s\n", WIFI_SSID, WiFi.softAPIP().toString().c_str());
   led.play(PAT_WIFI_READY);   // −− = AP listo
 
   // HTTP server

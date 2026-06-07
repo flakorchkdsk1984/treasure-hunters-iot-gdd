@@ -184,19 +184,19 @@ button:active{transform:scale(.95)}
   <div style="font-size:11px;color:var(--txt);margin-top:4px" id="chalBannerSub">Toca para iniciar misión</div>
 </div>
 
-<!-- IP CONFIG -->
-<div class="ip-row">
+<!-- IP CONFIG (solo para challenges) -->
+<div class="ip-row" id="ipRow" style="display:none">
   <span class="ip-label">IP BEACON:</span>
   <input id="ipInput" type="text" value="192.168.4.1" placeholder="192.168.4.1" autocomplete="off" autocorrect="off">
 </div>
 
 <!-- BOTONES -->
 <div class="btnrow">
-  <button id="btnWifi"    onclick="startWiFi()">⬡ WIFI CONECTAR</button>
+  <button id="btnBLE"     onclick="startBLE()">📡 DETECTAR BALIZA</button>
   <button id="btnStop"    onclick="stopAll()">✕ DETENER</button>
 </div>
 <div class="btnrow">
-  <button id="btnBLE"     onclick="startBLE()">⬡ BLE STANDBY</button>
+  <button id="btnWifi"    onclick="startWiFi()">⬡ WIFI CHALLENGE</button>
   <button id="btnCompass" onclick="requestCompass()">🧭 BRÚJULA</button>
 </div>
 <div class="btnrow">
@@ -401,6 +401,12 @@ function updateUI(rssi){
   }
   lastState = s;
   applyPulse(s, st.c);
+  // Cuando estás muy cerca: mostrar opción WiFi para challenge
+  if((s==='found'||s==='burning') && !wifiTimer){
+    document.getElementById('ipRow').style.display = 'flex';
+    if(!document.getElementById('stateMsg').textContent.includes('WiFi'))
+      document.getElementById('stateMsg').textContent += '  →  Conecta a WiFi "THLS-C001" para challenge';
+  }
 }
 
 function stateMsg(s){
@@ -484,45 +490,89 @@ async function sendCmd(cmd){
 function stopAll(){
   clearInterval(wifiTimer); wifiTimer = null;
   clearInterval(simTimer);  simTimer  = null;
-  if(bleDevice && bleDevice.gatt?.connected) bleDevice.gatt.disconnect();
+  if(bleDevice){
+    if(bleDevice.watchAdvertisements) bleDevice.removeEventListener('advertisementreceived', handleBLEAd);
+    if(bleDevice.gatt?.connected) bleDevice.gatt.disconnect();
+  }
+  document.getElementById('btnBLE').disabled  = false;
   document.getElementById('btnWifi').disabled = false;
   document.getElementById('btnStop').classList.remove('show');
   document.getElementById('hstatus').textContent = 'DESCONECTADO';
+  document.getElementById('ipRow').style.display = 'none';
   hideChalBanner();
 }
 
 // ══════════════════════════════════════════════════════
-// ── BLE STANDBY (modo secundario)
+// ── BLE — DETECCIÓN PASIVA (sin conectar a WiFi)
 // ══════════════════════════════════════════════════════
 const BLE_SVC  = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
 const BLE_INFO = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
 
 async function startBLE(){
   ensureAudio();
-  if(!navigator.bluetooth){ log('Web Bluetooth no disponible','le'); return; }
-  if(location.protocol!=='https:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){
+  if(!navigator.bluetooth){
+    log('Web Bluetooth no disponible en este navegador','le');
+    document.getElementById('noteMixed').classList.add('show');
+    return;
+  }
+  if(location.protocol!=='https:' && location.hostname!=='localhost' && location.hostname!=='127.0.0.1'){
     log('BLE requiere HTTPS o localhost','lw'); return;
   }
   try{
+    // Pide el dispositivo UNA sola vez (gesto de usuario)
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters:[{namePrefix:'THLS-'}], optionalServices:[BLE_SVC]
+      filters:[{namePrefix:'THLS-'}],
+      optionalServices:[BLE_SVC]
     });
-    log('BLE standby: '+bleDevice.name,'li');
-    const gs = await bleDevice.gatt.connect();
-    const svc = await gs.getPrimaryService(BLE_SVC);
-    const ch  = await svc.getCharacteristic(BLE_INFO);
-    const v   = await ch.readValue();
-    const d   = JSON.parse(new TextDecoder().decode(v));
-    log('BLE INFO: '+JSON.stringify(d),'lf');
-    if(d.txPower) txPower = d.txPower;
-    await ch.startNotifications();
-    ch.addEventListener('characteristicvaluechanged', ev=>{
-      const dd = JSON.parse(new TextDecoder().decode(ev.target.value));
-      if(dd.challenge) showChalBanner({type:dd.type||'wire_connect',seed:dd.nonce,diff:'?',timer:60});
-      else hideChalBanner();
+    log('Baliza: ' + bleDevice.name + ' — iniciando detección pasiva...','li');
+    document.getElementById('hstatus').textContent = '📡 ' + bleDevice.name;
+    document.getElementById('btnStop').classList.add('show');
+    document.getElementById('btnBLE').disabled = true;
+
+    // Escuchar advertisements sin conectar GATT (sin WiFi)
+    bleDevice.addEventListener('advertisementreceived', handleBLEAd);
+
+    if(typeof bleDevice.watchAdvertisements === 'function'){
+      await bleDevice.watchAdvertisements();
+      log('Detectando RSSI vía BLE passivo (sin conexión WiFi)','li');
+    } else {
+      // Fallback: conectar GATT solo para leer info inicial, luego desconectar
+      log('watchAdvertisements no disponible — usando fallback GATT','lw');
+      const gs  = await bleDevice.gatt.connect();
+      const svc = await gs.getPrimaryService(BLE_SVC);
+      const ch  = await svc.getCharacteristic(BLE_INFO);
+      const v   = await ch.readValue();
+      const d   = JSON.parse(new TextDecoder().decode(v));
+      if(d.txPower) txPower = d.txPower;
+      await ch.startNotifications();
+      ch.addEventListener('characteristicvaluechanged', ev=>{
+        const dd = JSON.parse(new TextDecoder().decode(ev.target.value));
+        if(dd.rssi !== undefined) updateUI(dd.rssi);
+        if(dd.challenge) showChalBanner({type:dd.type||'wire_connect',seed:dd.nonce,diff:'?',timer:60});
+        else hideChalBanner();
+      });
+    }
+  }catch(e){
+    log('BLE: '+e.message,'le');
+    document.getElementById('btnBLE').disabled = false;
+  }
+}
+
+function handleBLEAd(event){
+  const rssi = event.rssi;
+  if(rssi == null) return;
+  updateUI(rssi);
+  document.getElementById('hstatus').textContent = '📡 ' + event.device.name + ' | ' + rssi + ' dBm';
+  // Leer manufacturer data si hay challenge flag
+  if(event.manufacturerData){
+    event.manufacturerData.forEach(mfr => {
+      try{
+        const bytes = new Uint8Array(mfr.value.buffer);
+        if(bytes[0] === 0x01) showChalBanner({type:'wire_connect',seed:'84726',diff:'easy',timer:60});
+        else hideChalBanner();
+      }catch(_){}
     });
-    document.getElementById('hstatus').textContent = 'BLE standby: '+bleDevice.name;
-  }catch(e){ log('BLE error: '+e.message,'le'); }
+  }
 }
 
 // ══════════════════════════════════════════════════════
