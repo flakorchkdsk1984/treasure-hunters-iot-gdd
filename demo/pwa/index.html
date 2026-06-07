@@ -6,107 +6,137 @@
 <meta name="theme-color" content="#0a0e1a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="THLS">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
 <title>THLS Scanner</title>
 <style>
-  :root{
-    --dead:#1a1a2e; --cold:#1565c0; --warm:#6a1ea0;
-    --hot:#d84315;  --vhot:#e53935; --found:#2e7d32;
-    --bg:#07090f; --panel:#0d1117; --border:#1e3a5f;
-    --txt:#8fa8bf; --bright:#e0eaf2; --accent:#00b4d8;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--txt);font-family:'Courier New',monospace;
-       display:flex;flex-direction:column;align-items:center;min-height:100vh;
-       padding-bottom:24px;overflow-x:hidden}
+:root{
+  --dead:#1a1a2e;--cold:#1565c0;--warm:#6a1ea0;
+  --hot:#d84315;--vhot:#e53935;--found:#2e7d32;
+  --bg:#07090f;--panel:#0d1117;--border:#1e3a5f;
+  --txt:#8fa8bf;--bright:#e0eaf2;--accent:#00b4d8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Courier New',monospace;
+     display:flex;flex-direction:column;align-items:center;min-height:100vh;
+     padding-bottom:32px;overflow-x:hidden;user-select:none}
+header{width:100%;background:var(--panel);border-bottom:1px solid var(--border);
+       padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:11px;color:var(--accent);letter-spacing:2px}.logo b{color:#e53935}
+.hstatus{font-size:10px;color:#334}
+.radar-wrap{margin:14px auto 6px;position:relative;width:200px;height:200px}
+canvas{border-radius:50%}
+#rlabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+        font-size:10px;color:var(--accent);text-align:center;pointer-events:none;
+        text-shadow:0 0 8px var(--accent);letter-spacing:1px}
+.card{width:calc(100% - 32px);max-width:380px;background:var(--panel);
+      border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+      margin:5px 16px;transition:border-color .3s}
+.clabel{font-size:10px;color:#334;letter-spacing:2px;margin-bottom:5px}
+#stateVal{font-size:20px;font-weight:bold;letter-spacing:1px;color:var(--bright);
+          transition:color .3s;text-shadow:0 0 12px currentColor}
+#stateMsg{font-size:11px;margin-top:5px;color:var(--txt);min-height:15px}
+.barlabel{display:flex;justify-content:space-between;font-size:10px;
+          color:#334;letter-spacing:1px;margin-bottom:7px}
+.track{background:#050709;border-radius:3px;height:10px;
+       border:1px solid var(--border);overflow:hidden}
+#sigBar{height:100%;width:0%;border-radius:3px;transition:width .5s,background .4s;background:var(--cold)}
+#rssiLive{font-size:28px;font-weight:bold;color:var(--bright);text-align:center;
+          padding:6px 0;text-shadow:0 0 14px currentColor;transition:color .3s}
+#distLive{font-size:11px;color:var(--txt);text-align:center;margin-top:2px}
+.btnrow{width:calc(100% - 32px);max-width:380px;margin:6px 16px 2px;display:flex;gap:8px}
+button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
+       letter-spacing:1px;border:none;border-radius:6px;padding:13px;
+       cursor:pointer;flex:1;transition:all .2s;-webkit-tap-highlight-color:transparent}
+#btnConnect{background:var(--accent);color:#07090f}
+#btnConnect:disabled{background:#1e3a5f;color:#334;cursor:not-allowed}
+#btnConnect:active{transform:scale(.97)}
+#btnConnectAll{background:#0d1a2a;color:var(--accent);border:1px solid var(--accent);display:none}
+#btnConnectAll.show{display:block}
+#btnConnectAll:active{transform:scale(.97)}
+#btnDisc{background:#120505;color:#e53935;border:1px solid #e53935;display:none}
+#btnDisc.show{display:block}
+#btnSim{background:#0d1a0d;color:#2e7d32;border:1px solid #2e7d32}
+#btnSim:active{transform:scale(.97)}
+.note{width:calc(100% - 32px);max-width:380px;margin:4px 16px;font-size:10px;
+      color:#f39c12;background:#130e00;border:1px solid #6a4800;
+      border-radius:6px;padding:8px 12px;display:none}
+.note.show{display:block}
+.note code{color:#ffd;background:#0a0800;padding:1px 4px;border-radius:3px}
+.term{width:calc(100% - 32px);max-width:380px;background:#05080c;
+      border:1px solid var(--border);border-radius:8px;padding:8px 10px;
+      margin:8px 16px;max-height:120px;overflow-y:auto;font-size:10px;line-height:1.7}
+.l{color:#1e3a5f}.li{color:#27ae60}.lw{color:#f39c12}
+.le{color:#e74c3c}.lr{color:var(--accent);font-weight:bold}
+.lf{color:#f1c40f;font-weight:bold}
 
-  /* HEADER */
-  header{width:100%;background:var(--panel);border-bottom:1px solid var(--border);
-         padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
-  .logo{font-size:11px;color:var(--accent);letter-spacing:2px}
-  .logo b{color:#e53935}
-  .hstatus{font-size:10px;color:#334}
+/* ── CHALLENGE OVERLAY ── */
+#chalOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+             z-index:100;flex-direction:column;align-items:center;overflow-y:auto;
+             padding:20px 16px 40px}
+#chalOverlay.show{display:flex}
+.co-title{font-size:13px;color:#e53935;font-weight:bold;letter-spacing:3px;margin-bottom:4px;text-align:center}
+.co-sub{font-size:11px;color:var(--txt);margin-bottom:16px;text-align:center}
+.co-timer{font-size:36px;font-weight:bold;color:var(--bright);text-shadow:0 0 20px currentColor;
+          margin-bottom:12px;min-width:60px;text-align:center}
+.co-timer.urgent{color:#e53935;animation:pulse .5s infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.4}}
+.co-result{font-size:18px;font-weight:bold;margin:12px 0;text-align:center;display:none}
 
-  /* RADAR */
-  .radar-wrap{margin:18px auto 8px;position:relative;width:200px;height:200px}
-  canvas{border-radius:50%}
-  #rlabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-          font-size:10px;color:var(--accent);text-align:center;pointer-events:none;
-          text-shadow:0 0 8px var(--accent);letter-spacing:1px}
+/* ── MINIJUEGO WIRE CONNECT ── */
+#gameWire{width:100%;max-width:340px}
+.wire-board{display:flex;justify-content:space-between;gap:10px;margin:8px 0}
+.wire-col{display:flex;flex-direction:column;gap:10px;flex:1}
+.wire-btn{padding:12px 8px;border-radius:6px;border:2px solid #334;
+          font-size:12px;font-weight:bold;text-align:center;cursor:pointer;
+          transition:all .15s;position:relative}
+.wire-btn.selected{transform:scale(1.06);border-color:#fff;box-shadow:0 0 12px currentColor}
+.wire-btn.connected{opacity:.5;cursor:default;border-style:dashed}
+.wire-btn.wrong{animation:shake .3s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.wire-connections{margin:8px 0;font-size:10px;color:var(--txt);text-align:center}
 
-  /* ESTADO */
-  .card{width:calc(100% - 32px);max-width:360px;background:var(--panel);
-        border:1px solid var(--border);border-radius:8px;padding:12px 14px;
-        margin:5px 16px;transition:border-color .3s}
-  .clabel{font-size:10px;color:#334;letter-spacing:2px;margin-bottom:5px}
-  #stateVal{font-size:20px;font-weight:bold;letter-spacing:1px;color:var(--bright);
-            transition:color .3s;text-shadow:0 0 12px currentColor}
-  #stateMsg{font-size:11px;margin-top:5px;color:var(--txt);min-height:15px}
+/* ── MINIJUEGO CODE CRACK ── */
+#gameCode{width:100%;max-width:300px}
+.code-display{display:flex;gap:10px;justify-content:center;margin:10px 0}
+.code-digit{width:50px;height:60px;background:#050709;border:2px solid var(--border);
+            border-radius:8px;display:flex;align-items:center;justify-content:center;
+            font-size:30px;font-weight:bold;color:var(--bright);transition:border-color .2s}
+.code-digit.active{border-color:var(--accent);box-shadow:0 0 8px var(--accent)}
+.code-digit.ok{border-color:#2e7d32}
+.code-digit.err{border-color:#e53935;animation:shake .3s}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px auto;max-width:240px}
+.npbtn{padding:14px;border-radius:6px;border:1px solid var(--border);
+       background:#0d1520;color:var(--bright);font-size:16px;font-weight:bold;
+       font-family:'Courier New',monospace;cursor:pointer;transition:all .1s}
+.npbtn:active{background:var(--accent);color:#07090f;transform:scale(.93)}
+.npbtn.del{color:#e53935;border-color:#e53935}
+.npbtn.confirm{background:#0d2a0d;color:#2e7d32;border-color:#2e7d32;grid-column:1/-1}
+.code-hint{font-size:10px;color:#334;text-align:center;margin:4px 0}
 
-  /* BARRA */
-  .barlabel{display:flex;justify-content:space-between;font-size:10px;
-            color:#334;letter-spacing:1px;margin-bottom:7px}
-  .track{background:#050709;border-radius:3px;height:10px;
-         border:1px solid var(--border);overflow:hidden}
-  #sigBar{height:100%;width:0%;border-radius:3px;
-          transition:width .5s,background .4s;background:var(--cold)}
-
-  /* RSSI LIVE */
-  #rssiLive{font-size:28px;font-weight:bold;color:var(--bright);text-align:center;
-            padding:6px 0;text-shadow:0 0 14px currentColor;transition:color .3s}
-  #distLive{font-size:11px;color:var(--txt);text-align:center;margin-top:2px}
-
-  /* BEACON INFO */
-  #beaconCard{display:none}
-  #beaconCard.show{display:block}
-  .brow{display:flex;justify-content:space-between;font-size:11px;
-        padding:4px 0;border-bottom:1px solid #0d1520}
-  .brow:last-child{border:none}
-  .bk{color:#334}.bv{color:var(--bright);font-weight:bold}
-  .bv.on{color:#e53935;text-shadow:0 0 6px #e53935}
-  .bv.off{color:#2e7d32}
-
-  /* CHALLENGE BANNER */
-  #chalBanner{display:none;width:calc(100% - 32px);max-width:360px;margin:6px 16px;
-              background:#120505;border:2px solid #e53935;border-radius:8px;
-              padding:14px;text-align:center;animation:pb 1s infinite}
-  #chalBanner.show{display:block}
-  @keyframes pb{0%,100%{box-shadow:0 0 0 rgba(229,57,53,0)}
-                50%{box-shadow:0 0 20px rgba(229,57,53,.5)}}
-  .ctitle{font-size:13px;color:#e53935;font-weight:bold;letter-spacing:2px}
-  .cdetail{font-size:11px;color:var(--txt);margin-top:4px}
-
-  /* BOTONES */
-  .btnrow{width:calc(100% - 32px);max-width:360px;margin:10px 16px 4px;display:flex;gap:8px}
-  btn,button{font-family:'Courier New',monospace;font-size:13px;font-weight:bold;
-             letter-spacing:1px;border:none;border-radius:6px;
-             padding:14px;cursor:pointer;flex:1;transition:all .2s}
-  #btnConnect{background:var(--accent);color:#07090f}
-  #btnConnect:disabled{background:#1e3a5f;color:#334;cursor:not-allowed}
-  #btnConnect:active{transform:scale(.97)}
-  #btnDisc{background:#120505;color:#e53935;border:1px solid #e53935;display:none}
-  #btnDisc.show{display:block}
-  #btnDisc:active{transform:scale(.97)}
-  #btnSim{background:#0d1a0d;color:#2e7d32;border:1px solid #2e7d32}
-  #btnSim:active{transform:scale(.97)}
-
-  /* AVISO */
-  .note{width:calc(100% - 32px);max-width:360px;margin:4px 16px;font-size:10px;
-        color:#f39c12;background:#130e00;border:1px solid #6a4800;
-        border-radius:6px;padding:8px 12px;display:none}
-  .note.show{display:block}
-  .note code{color:#ffd;background:#0a0800;padding:1px 4px;border-radius:3px}
-
-  /* TERMINAL */
-  .term{width:calc(100% - 32px);max-width:360px;background:#05080c;
-        border:1px solid var(--border);border-radius:8px;padding:8px 10px;
-        margin:8px 16px;max-height:150px;overflow-y:auto;font-size:10px;line-height:1.7}
-  .l{color:#1e3a5f}.li{color:#27ae60}.lw{color:#f39c12}
-  .le{color:#e74c3c}.lr{color:var(--accent);font-weight:bold}
-  .lf{color:#f1c40f;font-weight:bold}
+/* ── MINIJUEGO MORSE ── */
+#gameMorse{width:100%;max-width:320px}
+.morse-display{background:#050709;border:1px solid var(--border);border-radius:8px;
+               padding:12px;margin:8px 0;text-align:center;min-height:50px}
+.morse-symbols{font-size:22px;letter-spacing:6px;color:var(--accent);
+               font-weight:bold;word-break:break-all}
+.morse-light{width:40px;height:40px;border-radius:50%;margin:8px auto;
+             background:#0d1520;border:2px solid var(--border);transition:background .05s,box-shadow .05s}
+.morse-light.on{background:#f1c40f;box-shadow:0 0 20px #f1c40f}
+.morse-input{width:100%;background:#050709;border:1px solid var(--border);
+             border-radius:6px;padding:10px;font-family:'Courier New',monospace;
+             font-size:18px;color:var(--bright);text-align:center;
+             text-transform:uppercase;letter-spacing:4px;margin:8px 0}
+.morse-input:focus{outline:none;border-color:var(--accent)}
+.morse-actions{display:flex;gap:8px;margin:6px 0}
+.mbtn{flex:1;padding:12px;border-radius:6px;border:1px solid;
+      font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
+      cursor:pointer;transition:all .15s}
+.mbtn:active{transform:scale(.95)}
+.mbtn-play{background:#0d1a2a;color:var(--accent);border-color:var(--accent)}
+.mbtn-ok{background:#0d2a0d;color:#2e7d32;border-color:#2e7d32}
+.morse-table{font-size:10px;color:#334;line-height:1.8;margin-top:8px;column-count:2;gap:8px}
+.morse-table span{color:var(--txt)}
 </style>
 </head>
 <body>
@@ -116,99 +146,174 @@
   <div class="hstatus" id="hstatus">DESCONECTADO</div>
 </header>
 
-<!-- RADAR -->
 <div class="radar-wrap">
   <canvas id="rc" width="200" height="200"></canvas>
   <div id="rlabel">INACTIVO</div>
 </div>
 
-<!-- RSSI grande -->
 <div class="card" id="rssiCard">
   <div class="clabel">RSSI EN TIEMPO REAL</div>
   <div id="rssiLive">— dBm</div>
   <div id="distLive">conecta para medir</div>
 </div>
-
-<!-- ESTADO -->
-<div class="card" id="stateCard">
+<div class="card">
   <div class="clabel">ESTADO DE SEÑAL</div>
   <div id="stateVal">SIN SEÑAL</div>
-  <div id="stateMsg">Presiona CONECTAR para iniciar el escáner</div>
+  <div id="stateMsg">Presiona CONECTAR o SIMULAR</div>
 </div>
-
-<!-- BARRA -->
 <div class="card">
-  <div class="barlabel">
-    <span>INTENSIDAD</span><span id="barPct">0%</span>
-  </div>
+  <div class="barlabel"><span>INTENSIDAD</span><span id="barPct">0%</span></div>
   <div class="track"><div id="sigBar"></div></div>
 </div>
 
-<!-- INFO BALIZA -->
-<div class="card" id="beaconCard">
-  <div class="clabel">BALIZA DETECTADA</div>
-  <div class="brow"><span class="bk">ID</span><span class="bv" id="bId">—</span></div>
-  <div class="brow"><span class="bk">CLASE</span><span class="bv" id="bClass">—</span></div>
-  <div class="brow"><span class="bk">REGION</span><span class="bv" id="bRegion">—</span></div>
-  <div class="brow"><span class="bk">NONCE</span><span class="bv" id="bNonce">—</span></div>
-  <div class="brow"><span class="bk">CHALLENGE</span><span class="bv" id="bChal">—</span></div>
-</div>
-
-<!-- CHALLENGE BANNER -->
-<div id="chalBanner">
-  <div class="ctitle">⚠ INFILTRACIÓN DISPONIBLE ⚠</div>
-  <div class="cdetail" id="chalDetail">—</div>
-</div>
-
-<!-- BOTONES -->
 <div class="btnrow">
-  <button id="btnConnect" onclick="connectBLE()">⬡ CONECTAR</button>
-  <button id="btnDisc" onclick="disconnect()">✕ CORTAR</button>
+  <button id="btnConnect"    onclick="connectBLE()">⬡ CONECTAR</button>
+  <button id="btnDisc"       onclick="disconnect()">✕ CORTAR</button>
+</div>
+<div class="btnrow">
+  <button id="btnConnectAll" onclick="connectBLEAny()">⬡ BUSCAR CUALQUIER BLE</button>
 </div>
 <div class="btnrow">
   <button id="btnSim" onclick="startSimulation()">▷ SIMULAR SIN ESP32</button>
 </div>
 
-<!-- AVISOS -->
 <div class="note" id="noteIOS">
-  ⚠ <strong>iOS/Safari no soporta Web Bluetooth.</strong> Usa Chrome en Android.<br>
-  Puedes usar el botón <strong>SIMULAR</strong> para probar la interfaz.
+  ⚠ <strong>iOS/Safari no soporta Web Bluetooth.</strong> Usa Chrome en Android o el botón SIMULAR.
 </div>
 <div class="note" id="noteHTTPS">
   ⚠ Web Bluetooth requiere <strong>HTTPS</strong> o <strong>localhost</strong>.<br>
-  Sirve el archivo con: <code>python3 -m http.server 8080</code>
-  o súbelo a <code>netlify.app</code>
+  <code>python3 -m http.server 8080</code> y abre en <code>localhost:8080</code>
 </div>
 <div class="note" id="noteRSSI">
-  ℹ Para RSSI <strong>real</strong> (distancia precisa), activa en Chrome Android:<br>
-  <code>chrome://flags/#enable-experimental-web-platform-features</code>
-  → Enabled → Reiniciar Chrome.<br>
-  Sin la flag, la PWA usa <strong>RSSI estimado</strong> (aun funciona, menos preciso).
+  ℹ Para RSSI real: <code>chrome://flags/#enable-experimental-web-platform-features</code> → Enabled → Reiniciar Chrome.
+  Sin la flag la PWA usa RSSI estimado (aun funciona).
 </div>
 
-<!-- TERMINAL -->
 <div class="term" id="term"></div>
 
+<!-- ═══════════ CHALLENGE OVERLAY ═══════════ -->
+<div id="chalOverlay">
+  <div class="co-title">⚠ INFILTRACIÓN DISPONIBLE ⚠</div>
+  <div class="co-sub" id="chalSub">—</div>
+  <div class="co-timer" id="chalTimer">60</div>
+
+  <!-- Wire Connect -->
+  <div id="gameWire" style="display:none">
+    <div class="card" style="max-width:340px;width:100%">
+      <div class="clabel">CONECTAR CABLES — empareja colores</div>
+      <div class="wire-board">
+        <div class="wire-col" id="wireLeft"></div>
+        <div class="wire-col" id="wireRight"></div>
+      </div>
+      <div class="wire-connections" id="wireStatus">0 / 4 conexiones</div>
+    </div>
+  </div>
+
+  <!-- Code Crack -->
+  <div id="gameCode" style="display:none">
+    <div class="card" style="max-width:300px;width:100%">
+      <div class="clabel">DESCIFRAR CÓDIGO — 4 dígitos</div>
+      <div class="code-display">
+        <div class="code-digit" id="d0">_</div>
+        <div class="code-digit" id="d1">_</div>
+        <div class="code-digit" id="d2">_</div>
+        <div class="code-digit" id="d3">_</div>
+      </div>
+      <div class="code-hint" id="codeHint">Interceptando frecuencia...</div>
+      <div class="numpad" id="numpad"></div>
+    </div>
+  </div>
+
+  <!-- Morse Decode -->
+  <div id="gameMorse" style="display:none">
+    <div class="card" style="max-width:320px;width:100%">
+      <div class="clabel">DECODIFICAR MORSE — escucha y transcribe</div>
+      <div class="morse-display">
+        <div class="morse-symbols" id="morseSymbols">? ? ?</div>
+        <div class="morse-light" id="morseLight"></div>
+      </div>
+      <div class="morse-actions">
+        <button class="mbtn mbtn-play" onclick="playMorse()">▶ REPRODUCIR</button>
+      </div>
+      <input type="text" class="morse-input" id="morseInput"
+             placeholder="escribe aquí" maxlength="8"
+             oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')">
+      <div class="morse-actions">
+        <button class="mbtn mbtn-ok" onclick="submitMorse()">✓ CONFIRMAR</button>
+      </div>
+      <div class="morse-table" id="morseHint"></div>
+    </div>
+  </div>
+
+  <div class="co-result" id="chalResult"></div>
+  <div class="btnrow" style="max-width:340px;width:100%;margin-top:12px">
+    <button onclick="closeChal()" style="background:#0d1520;color:var(--txt);border:1px solid var(--border)">
+      ABORTAR MISIÓN
+    </button>
+  </div>
+</div>
+
 <script>
-// ── CONSTANTES ─────────────────────────────────────────────────────────────
-const SVC  = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
-const CINFO= 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
-const CCHAL= 'cba1d466-344c-4be3-ab3f-189f80dd7518';
+// ══════════════════════════════════════════════════════
+// ── AUDIO ENGINE (Web Audio API)
+// ══════════════════════════════════════════════════════
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+}
+function beep(freq=440, dur=0.1, vol=0.3, type='sine', delay=0){
+  ensureAudio();
+  const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+  osc.connect(g); g.connect(audioCtx.destination);
+  osc.type=type; osc.frequency.value=freq;
+  const t=audioCtx.currentTime+delay;
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(vol,t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+  osc.start(t); osc.stop(t+dur+0.01);
+}
+function playSuccess(){
+  [523,659,784,1047].forEach((f,i)=>beep(f,0.18,0.4,'sine',i*0.13));
+}
+function playFail(){
+  beep(180,0.5,0.5,'sawtooth');
+}
+function playClick(){ beep(800,0.04,0.2); }
+function playChalAlert(){
+  [440,550,440,550,660].forEach((f,i)=>beep(f,0.12,0.4,'square',i*0.15));
+}
+function playProximityTick(rssi){
+  // Más fuerte y más agudo cuanto más cerca
+  const s=rssiToState(rssi);
+  const freqMap={dead:0,cold:300,warm:420,hot:540,vhot:660,found:880};
+  const f=freqMap[s]||0;
+  if(f>0) beep(f,0.04,0.15,'sine');
+}
 
-// ── ESTADO ──────────────────────────────────────────────────────────────────
-let bleDevice=null, gattServer=null, charInfo=null, charChal=null;
-let pollTimer=null, simTimer=null;
+// ══════════════════════════════════════════════════════
+// ── CONSTANTES BLE
+// ══════════════════════════════════════════════════════
+const SVC   = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+const CINFO = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+const CCHAL = 'cba1d466-344c-4be3-ab3f-189f80dd7518';
+const CCMD  = 'd0e56b1a-7f3c-4a9b-b821-3e5c7d2f9a01';
+
+// ── ESTADO ─────────────────────────────────────────────
+let bleDevice=null, gattServer=null, charInfo=null, charChal=null, charCmd=null;
+let pollTimer=null, simTimer=null, simPhase=0;
 let rssiSmooth=-100, rssiHistory=[], txPower=-59, radarA=0;
-let simMode=false;
+let simMode=false, hasRealRSSI=false;
+let tickInterval=null;
 
-// ── SIGNAL STATES ───────────────────────────────────────────────────────────
+// ── SIGNAL STATES ──────────────────────────────────────
 const ST={
-  dead: {l:'SIN SEÑAL',      c:'#2c3e50', msg:'ZONA MUERTA — Sin transmisiones', pct:0},
-  cold: {l:'FRÍO',           c:'#1565c0', msg:'SEÑAL DÉBIL — A.R.G.O.S. presente en el área', pct:20},
-  warm: {l:'TIBIO',          c:'#6a1ea0', msg:'SEÑAL ESTABLE — Fuente identificada. Sigue avanzando.', pct:45},
-  hot:  {l:'CALIENTE',       c:'#d84315', msg:'SEÑAL FUERTE — Proximidad confirmada. Precaución.', pct:70},
-  vhot: {l:'MUY CALIENTE',   c:'#e53935', msg:'SEÑAL CRÍTICA — Baliza a metros de tu posición.', pct:88},
-  found:{l:'BALIZA LOCALIZADA',c:'#2e7d32',msg:'ORIGEN LOCALIZADO — Iniciar protocolo de infiltración.',pct:100},
+  dead: {l:'SIN SEÑAL',     c:'#2c3e50',msg:'ZONA MUERTA — Sin transmisiones',pct:0},
+  cold: {l:'FRÍO',          c:'#1565c0',msg:'SEÑAL DÉBIL — A.R.G.O.S. detectado en el área',pct:20},
+  warm: {l:'TIBIO',         c:'#6a1ea0',msg:'SEÑAL ESTABLE — Fuente identificada. Avanza.',pct:45},
+  hot:  {l:'CALIENTE',      c:'#d84315',msg:'SEÑAL FUERTE — Proximidad confirmada.',pct:70},
+  vhot: {l:'MUY CALIENTE',  c:'#e53935',msg:'SEÑAL CRÍTICA — Baliza a metros.',pct:88},
+  found:{l:'BALIZA LOCALIZADA',c:'#2e7d32',msg:'ORIGEN LOCALIZADO — Protocolo de infiltración.',pct:100},
 };
 function rssiToState(r){
   if(r<-90)return'dead'; if(r<-80)return'cold';
@@ -221,11 +326,12 @@ function smooth(raw){
   return Math.round(rssiHistory.reduce((a,b)=>a+b)/rssiHistory.length);
 }
 function dist(rssi){
-  const n=2.5, d=Math.pow(10,(txPower-rssi)/(10*n));
-  if(d<1)return'< 1 m'; if(d>200)return'> 200 m'; return d.toFixed(1)+' m';
+  const d=Math.pow(10,(txPower-rssi)/(10*2.5));
+  return d<1?'< 1 m':d>200?'> 200 m':d.toFixed(1)+' m';
 }
 
-// ── UI UPDATE ────────────────────────────────────────────────────────────────
+// ── UI UPDATE ───────────────────────────────────────────
+let lastState='dead', tickCount=0;
 function updateUI(rssi){
   rssiSmooth=smooth(rssi);
   const s=rssiToState(rssiSmooth), st=ST[s];
@@ -235,52 +341,25 @@ function updateUI(rssi){
   document.getElementById('stateVal').textContent=st.l;
   document.getElementById('stateVal').style.color=st.c;
   document.getElementById('stateMsg').textContent=st.msg;
-  document.getElementById('stateCard').style.borderColor=st.c;
-  document.getElementById('rssiCard').style.borderColor=st.c;
+  document.getElementById('stateCard')||0;
+  const cards=document.querySelectorAll('.card');
+  cards.forEach(c=>{ if(c.id==='rssiCard'||!c.id) c.style.borderColor=st.c; });
   document.getElementById('sigBar').style.width=st.pct+'%';
   document.getElementById('sigBar').style.background=st.c;
   document.getElementById('barPct').textContent=st.pct+'%';
   document.getElementById('rlabel').textContent=st.l;
+  // ticks de proximidad
+  tickCount++;
+  if(tickCount%3===0) playProximityTick(rssiSmooth);
+  // vibración
   if(navigator.vibrate){
-    if(s==='found')navigator.vibrate([200,60,200]);
-    else if(s==='vhot')navigator.vibrate(120);
-    else if(s==='hot')navigator.vibrate(60);
+    if(s==='found'&&lastState!=='found') navigator.vibrate([200,60,200]);
+    else if(s==='vhot'&&lastState!=='vhot') navigator.vibrate(120);
   }
+  lastState=s;
 }
 
-// ── BEACON JSON ──────────────────────────────────────────────────────────────
-function applyBeaconInfo(json){
-  try{
-    const d=JSON.parse(json);
-    if(d.txPower)txPower=d.txPower;
-    document.getElementById('bId').textContent=d.id||d.beaconId||'—';
-    document.getElementById('bClass').textContent=d.class||'—';
-    document.getElementById('bRegion').textContent=d.region||'—';
-    document.getElementById('bNonce').textContent=d.nonce||'—';
-    const ce=document.getElementById('bChal');
-    const banner=document.getElementById('chalBanner');
-    if(d.challenge){
-      ce.textContent='⚠ ACTIVO'; ce.className='bv on';
-      banner.classList.add('show');
-      if(navigator.vibrate)navigator.vibrate([100,60,100,60,300]);
-    }else{
-      ce.textContent='inactivo'; ce.className='bv off';
-      banner.classList.remove('show');
-    }
-    document.getElementById('beaconCard').classList.add('show');
-  }catch(e){log('JSON parse error: '+e,'le')}
-}
-function applyChalInfo(json){
-  try{
-    const d=JSON.parse(json);
-    document.getElementById('chalDetail').textContent=
-      'MINIJUEGO: '+(d.type||'?').toUpperCase().replace(/_/g,' ')+
-      '  |  SEED: '+(d.seed||'?')+
-      '  |  '+d.timer+'s';
-  }catch(e){}
-}
-
-// ── LOG ───────────────────────────────────────────────────────────────────────
+// ── LOG ─────────────────────────────────────────────────
 function log(msg,cls='l'){
   const t=document.getElementById('term');
   const ts=new Date().toLocaleTimeString('es',{hour12:false});
@@ -291,139 +370,106 @@ function log(msg,cls='l'){
   t.scrollTop=t.scrollHeight;
 }
 
-// ── WEB BLUETOOTH ────────────────────────────────────────────────────────────
-let hasRealRSSI = false;
-
+// ══════════════════════════════════════════════════════
+// ── WEB BLUETOOTH
+// ══════════════════════════════════════════════════════
 async function connectBLE(){
-  // Detectar soporte real
-  if(!navigator.bluetooth){
-    if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
-      document.getElementById('noteIOS').classList.add('show');
-    } else {
-      // En HTTP fuera de localhost, bluetooth tampoco está disponible
-      document.getElementById('noteHTTPS').classList.add('show');
-    }
-    log('Web Bluetooth no disponible en este navegador','le');
-    return;
-  }
-  stopSim();
-  hasRealRSSI = false;
-  log('Abriendo selector de dispositivos BLE...','li');
+  if(!checkBTAvailable()) return;
+  stopSim(); hasRealRSSI=false;
+  log('Buscando dispositivos THLS-*...','li');
   setBtnState('connecting');
+  try{
+    bleDevice=await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:'THLS-'}],
+      optionalServices:[SVC]
+    });
+    await finishConnect();
+  }catch(err){ handleBTError(err); }
+}
+
+async function connectBLEAny(){
+  if(!checkBTAvailable()) return;
+  stopSim(); hasRealRSSI=false;
+  log('Buscando CUALQUIER dispositivo BLE...','lw');
+  setBtnState('connecting');
+  try{
+    bleDevice=await navigator.bluetooth.requestDevice({
+      acceptAllDevices:true,
+      optionalServices:[SVC]
+    });
+    await finishConnect();
+  }catch(err){ handleBTError(err); }
+}
+
+async function finishConnect(){
+  log('Dispositivo: '+bleDevice.name,'li');
+  bleDevice.addEventListener('gattserverdisconnected',onDisconnected);
+
+  // watchAdvertisements para RSSI real
+  if(typeof bleDevice.watchAdvertisements==='function'){
+    try{
+      await bleDevice.watchAdvertisements();
+      bleDevice.addEventListener('advertisementreceived',(ev)=>{
+        if(ev.rssi!=null){ hasRealRSSI=true; updateUI(ev.rssi); }
+      });
+      setTimeout(()=>{ if(!hasRealRSSI) startRSSIPolling(); },3000);
+    }catch(e){ startRSSIPolling(); }
+  }else{ startRSSIPolling(); }
+
+  // GATT
+  log('Conectando GATT...','l');
+  gattServer=await bleDevice.gatt.connect();
+  log('GATT conectado ✓','li');
+  document.getElementById('hstatus').textContent='BLE: '+bleDevice.name;
 
   try{
-    // FIX: solo filtrar por namePrefix — el ESP32 NO incluye el service UUID
-    // en sus advertisement packets, solo lo expone vía GATT.
-    // { services: [SVC] } como filtro nunca matchea dispositivos ESP32 Arduino.
-    bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'THLS-' }],
-      optionalServices: [SVC]
-    });
+    const svc=await gattServer.getPrimaryService(SVC);
+    charInfo=await svc.getCharacteristic(CINFO);
+    charChal=await svc.getCharacteristic(CCHAL);
+    try{ charCmd=await svc.getCharacteristic(CCMD); }catch(_){}
 
-    log('Dispositivo: '+bleDevice.name,'li');
-    bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+    const v=await charInfo.readValue();
+    const info=JSON.parse(new TextDecoder().decode(v));
+    if(info.txPower) txPower=info.txPower;
+    log('INFO: '+JSON.stringify(info),'lf');
 
-    // watchAdvertisements para RSSI real (Chrome con flag experimental)
-    // FIX: rastrear éxito con variable, no con chequeo del método
-    if(typeof bleDevice.watchAdvertisements === 'function'){
-      try{
-        await bleDevice.watchAdvertisements();
-        bleDevice.addEventListener('advertisementreceived',(ev)=>{
-          if(ev.rssi!=null){
-            hasRealRSSI = true;
-            log('RSSI real: '+ev.rssi+' dBm','lr');
-            updateUI(ev.rssi);
-          }
-        });
-        log('watchAdvertisements() activo — esperando RSSI real...','li');
-        document.getElementById('noteRSSI').classList.remove('show');
-        // Dar 3 segundos para recibir un adv. antes de caer en polling
-        setTimeout(()=>{ if(!hasRealRSSI) startRSSIPolling(); }, 3000);
-      }catch(e){
-        log('watchAdvertisements falló (activa flag Chrome): '+e.message,'lw');
-        document.getElementById('noteRSSI').classList.add('show');
-        startRSSIPolling();
-      }
-    }else{
-      document.getElementById('noteRSSI').classList.add('show');
-      startRSSIPolling();
-    }
+    const cv=await charChal.readValue();
+    const chal=JSON.parse(new TextDecoder().decode(cv));
 
-    // Conectar GATT
-    log('Conectando GATT...','l');
-    gattServer = await bleDevice.gatt.connect();
-    log('GATT conectado ✓','li');
-    document.getElementById('hstatus').textContent='CONECTADO: '+bleDevice.name;
-
-    const svc = await gattServer.getPrimaryService(SVC);
-    log('Servicio encontrado ✓','li');
-
-    charInfo = await svc.getCharacteristic(CINFO);
-    charChal  = await svc.getCharacteristic(CCHAL);
-
-    // Lectura inicial
-    const infoVal = await charInfo.readValue();
-    const infoJson = new TextDecoder().decode(infoVal);
-    log('INFO: '+infoJson,'lf');
-    applyBeaconInfo(infoJson);
-
-    const chalVal = await charChal.readValue();
-    applyChalInfo(new TextDecoder().decode(chalVal));
-
-    // Notificaciones cuando el ESP32 cambia estado (botón BOOT)
     await charInfo.startNotifications();
-    charInfo.addEventListener('characteristicvaluechanged', (ev)=>{
-      const json = new TextDecoder().decode(ev.target.value);
-      log('NOTIFY: '+json,'lf');
-      applyBeaconInfo(json);
-      charChal.readValue().then(v=>applyChalInfo(new TextDecoder().decode(v)));
+    charInfo.addEventListener('characteristicvaluechanged',(ev)=>{
+      const d=JSON.parse(new TextDecoder().decode(ev.target.value));
+      if(d.txPower) txPower=d.txPower;
+      log('NOTIFY challenge='+(d.challenge?'ON':'OFF'),'lf');
+      if(d.challenge) openChallenge(chal);
+      else closeChal();
     });
-    log('Notificaciones activas — presiona BOOT en el ESP32 ✓','li');
-
+    log('Notificaciones activas — presiona BOOT en el ESP32 para challenge ✓','li');
     setBtnState('connected');
-
-  }catch(err){
-    // Cancelar selector = NotFoundError (usuario cerró sin elegir)
-    if(err.name==='NotFoundError'){
-      log('Selector cancelado por el usuario','lw');
-    } else if(err.name==='SecurityError'){
-      log('ERROR de seguridad — ¿estás en HTTPS o localhost?','le');
-      document.getElementById('noteHTTPS').classList.add('show');
-    } else if(err.name==='NetworkError'){
-      log('ERROR de red — asegurate que el ESP32 está encendido y advertising','le');
-    } else {
-      log('ERROR ['+err.name+']: '+err.message,'le');
-      log('Tip: ESP32 encendido? HTTPS o localhost? Chrome Android?','lw');
-    }
-    setBtnState('idle');
+    if(info.challenge) openChallenge(chal);
+  }catch(e){
+    log('Servicio THLS no encontrado en este dispositivo: '+e.message,'lw');
+    log('(dispositivo conectado — RSSI funcionando)','l');
+    setBtnState('connected');
   }
 }
 
-// Polling de RSSI simulado via re-read (mientras no haya watchAdvertisements)
 function startRSSIPolling(){
-  if(pollTimer)clearInterval(pollTimer);
-  // Simulacion de señal variable para demo visual (sin watchAdvertisements)
-  // En produccion usar watchAdvertisements con flag activada
-  log('Modo RSSI estimado (activa chrome://flags para RSSI real)','lw');
-  let base=-65, dir=1, step=0;
+  if(pollTimer) return;
+  log('Modo RSSI estimado (sin flag experimental)','lw');
+  document.getElementById('noteRSSI').classList.add('show');
+  let base=-65, dir=1;
   pollTimer=setInterval(()=>{
-    step++;
-    // Simular movimiento (sube y baja lentamente)
-    base += dir * (Math.random()*2);
-    if(base > -45) dir=-1;
-    if(base < -90) dir=1;
-    const noise = (Math.random()-0.5)*6;
-    updateUI(Math.round(base+noise));
-    if(step%5===0) log('RSSI ~'+Math.round(base+noise)+' dBm (estimado)','lr');
+    base+=dir*(Math.random()*1.5);
+    if(base>-45)dir=-1; if(base<-90)dir=1;
+    updateUI(Math.round(base+(Math.random()-0.5)*4));
   },1000);
 }
 
 function onDisconnected(){
-  log('Conexión perdida','lw');
+  log('Conexión BLE perdida','lw');
   clearInterval(pollTimer); pollTimer=null;
   rssiHistory=[]; updateUI(-100);
-  document.getElementById('beaconCard').classList.remove('show');
-  document.getElementById('chalBanner').classList.remove('show');
   document.getElementById('hstatus').textContent='DESCONECTADO';
   setBtnState('idle');
 }
@@ -432,96 +478,388 @@ function disconnect(){
   clearInterval(pollTimer); pollTimer=null;
   if(bleDevice&&bleDevice.gatt.connected) bleDevice.gatt.disconnect();
   onDisconnected();
-  log('Desconectado manualmente','lw');
 }
 
-// ── SIMULACION (sin ESP32) ────────────────────────────────────────────────────
-function startSimulation(){
-  stopSim(); simMode=true;
-  log('=== MODO SIMULACION (sin ESP32) ===','li');
-  log('Simula acercarte/alejarte de una baliza clase A','l');
-  document.getElementById('hstatus').textContent='SIMULANDO';
-  document.getElementById('btnConnect').disabled=true;
-  document.getElementById('btnDisc').classList.add('show');
-
-  // Simular info de baliza
-  applyBeaconInfo('{"id":"A042","class":"A","region":"LAT-AR-01","nonce":"SIM001","challenge":false,"txPower":-59}');
-  applyChalInfo('{"type":"wire_connect","diff":"hard","seed":"99312","timer":90}');
-
-  let t=0;
-  simTimer=setInterval(()=>{
-    t+=0.04;
-    // Señal que oscila: lejos → cerca → muy cerca → active challenge → lejos
-    const cycle = t % (Math.PI*2);
-    const base = -90 + 48 * Math.abs(Math.sin(cycle*0.7));
-    const noise = (Math.random()-0.5)*5;
-    const rssi = Math.round(Math.max(-95, Math.min(-42, base+noise)));
-    updateUI(rssi);
-    // Activar challenge cuando muy cerca
-    if(rssi>-55 && !document.getElementById('chalBanner').classList.contains('show')){
-      applyBeaconInfo('{"id":"A042","class":"A","region":"LAT-AR-01","nonce":"SIM002","challenge":true,"txPower":-59}');
-    }else if(rssi<-70){
-      applyBeaconInfo('{"id":"A042","class":"A","region":"LAT-AR-01","nonce":"SIM001","challenge":false,"txPower":-59}');
-    }
-  },800);
-}
-function stopSim(){
-  if(simTimer){clearInterval(simTimer);simTimer=null;}
-  simMode=false;
+function checkBTAvailable(){
+  if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
+    document.getElementById('noteIOS').classList.add('show');
+    log('iOS no soporta Web Bluetooth','le'); return false;
+  }
+  const secure=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
+  if(!secure){
+    document.getElementById('noteHTTPS').classList.add('show');
+    log('Necesitas HTTPS o localhost para Web Bluetooth','lw'); return false;
+  }
+  if(!navigator.bluetooth){
+    log('Web Bluetooth no disponible — usa Chrome Android','le'); return false;
+  }
+  return true;
 }
 
-// ── BOTONES ESTADO ────────────────────────────────────────────────────────────
+function handleBTError(err){
+  if(err.name==='NotFoundError') log('Selector cancelado o ningún dispositivo encontrado','lw');
+  else if(err.name==='SecurityError'){ log('Error de seguridad — requiere HTTPS','le'); document.getElementById('noteHTTPS').classList.add('show'); }
+  else log('BT Error ['+err.name+']: '+err.message,'le');
+  setBtnState('idle');
+  document.getElementById('btnConnectAll').classList.add('show');
+}
+
 function setBtnState(s){
-  const bc=document.getElementById('btnConnect');
-  const bd=document.getElementById('btnDisc');
-  if(s==='idle'){bc.disabled=false;bc.textContent='⬡ CONECTAR';bd.classList.remove('show');
-                  document.getElementById('btnConnect').disabled=false;}
+  const bc=document.getElementById('btnConnect'), bd=document.getElementById('btnDisc');
+  if(s==='idle'){bc.disabled=false;bc.textContent='⬡ CONECTAR';bd.classList.remove('show');}
   if(s==='connecting'){bc.disabled=true;bc.textContent='◌ CONECTANDO...';}
   if(s==='connected'){bc.disabled=true;bc.textContent='✓ CONECTADO';bd.classList.add('show');}
 }
 
-// ── RADAR CANVAS ──────────────────────────────────────────────────────────────
-const cv=document.getElementById('rc'), cx2=cv.getContext('2d');
-const CR=98, CX=100, CY=100;
-const RING_COLORS={dead:'#0d1520',cold:'#0d1e3a',warm:'#1a0d3a',
-                   hot:'#3a0d0d', vhot:'#4a0a0a',found:'#0a2a14'};
+// ══════════════════════════════════════════════════════
+// ── SIMULACIÓN
+// ══════════════════════════════════════════════════════
+function startSimulation(){
+  stopSim(); simMode=true; simPhase=0;
+  log('=== MODO SIMULACIÓN — acercándose a baliza THLS-C001 ===','li');
+  document.getElementById('hstatus').textContent='SIMULANDO';
+  document.getElementById('btnConnect').disabled=true;
+  document.getElementById('btnDisc').classList.add('show');
 
+  let t=0, challengeOpened=false;
+  const chalData={type:'wire_connect',diff:'easy',seed:'84726',timer:60,slot:0};
+
+  simTimer=setInterval(()=>{
+    t+=0.05;
+    // Curva: lejos → cerca → desafío → lejos
+    const cycle=t%(Math.PI*2);
+    const base=-95+55*Math.abs(Math.sin(cycle*0.6));
+    const rssi=Math.round(Math.max(-98,Math.min(-40,base+(Math.random()-0.5)*4)));
+    updateUI(rssi);
+
+    if(rssi>-55&&!challengeOpened){
+      challengeOpened=true;
+      log('¡CHALLENGE ACTIVADO por el ESP32!','lf');
+      playChalAlert();
+      // Rotar tipo de minijuego en simulación
+      const tipos=['wire_connect','qr_scan','morse_decode'];
+      const tipo=tipos[Math.floor(Math.random()*3)];
+      chalData.type=tipo;
+      setTimeout(()=>openChallenge(chalData),800);
+    }
+    if(rssi<-80&&challengeOpened) challengeOpened=false;
+  },800);
+}
+
+function stopSim(){
+  if(simTimer){clearInterval(simTimer);simTimer=null;}
+  simMode=false;
+  document.getElementById('btnConnect').disabled=false;
+  document.getElementById('btnDisc').classList.remove('show');
+}
+
+// ══════════════════════════════════════════════════════
+// ── CHALLENGE MANAGER
+// ══════════════════════════════════════════════════════
+let chalTimerInterval=null, chalSeconds=60;
+
+function openChallenge(chal){
+  if(document.getElementById('chalOverlay').classList.contains('show')) return;
+  ensureAudio();
+  const typeLabels={wire_connect:'CONECTAR CABLES',qr_scan:'DESCIFRAR CÓDIGO',morse_decode:'CÓDIGO MORSE'};
+  document.getElementById('chalSub').textContent=
+    (typeLabels[chal.type]||chal.type.toUpperCase())+'  ·  DIFICULTAD: '+(chal.diff||'?').toUpperCase()+
+    '  ·  SEED: '+(chal.seed||'?');
+  chalSeconds=chal.timer||60;
+  document.getElementById('chalTimer').textContent=chalSeconds;
+  document.getElementById('chalTimer').classList.remove('urgent');
+  document.getElementById('chalResult').style.display='none';
+
+  // Mostrar el minijuego correcto
+  document.getElementById('gameWire').style.display='none';
+  document.getElementById('gameCode').style.display='none';
+  document.getElementById('gameMorse').style.display='none';
+
+  if(chal.type==='wire_connect') initWire(chal.seed);
+  else if(chal.type==='qr_scan') initCode(chal.seed);
+  else if(chal.type==='morse_decode') initMorse(chal.seed);
+
+  document.getElementById('chalOverlay').classList.add('show');
+  if(navigator.vibrate) navigator.vibrate([100,60,100,60,300]);
+
+  chalTimerInterval=setInterval(()=>{
+    chalSeconds--;
+    document.getElementById('chalTimer').textContent=chalSeconds;
+    if(chalSeconds<=10) document.getElementById('chalTimer').classList.add('urgent');
+    if(chalSeconds<=0){
+      clearInterval(chalTimerInterval);
+      showChalResult(false,'TIEMPO AGOTADO — Misión fallida');
+    }
+  },1000);
+}
+
+function closeChal(){
+  clearInterval(chalTimerInterval);
+  document.getElementById('chalOverlay').classList.remove('show');
+  stopWire(); stopCode(); stopMorse();
+}
+
+function showChalResult(success, msg){
+  clearInterval(chalTimerInterval);
+  const r=document.getElementById('chalResult');
+  r.style.display='block';
+  r.style.color=success?'#2e7d32':'#e53935';
+  r.textContent=(success?'✓ ':' ✗ ')+msg;
+  if(success){ playSuccess(); if(navigator.vibrate) navigator.vibrate([200,100,200,100,500]); }
+  else{ playFail(); if(navigator.vibrate) navigator.vibrate([500,100,500]); }
+  log((success?'✓ MISIÓN COMPLETADA':' ✗ MISIÓN FALLIDA')+' — '+msg, success?'li':'le');
+  if(success) setTimeout(closeChal,2500);
+}
+
+// ══════════════════════════════════════════════════════
+// ── MINIJUEGO: WIRE CONNECT
+// ══════════════════════════════════════════════════════
+const WIRE_COLORS=[
+  {name:'ROJO',   bg:'#c0392b',fg:'#fff'},
+  {name:'AZUL',   bg:'#1565c0',fg:'#fff'},
+  {name:'VERDE',  bg:'#1b5e20',fg:'#fff'},
+  {name:'AMARILLO',bg:'#f39c12',fg:'#07090f'},
+];
+let wireSelected=null, wireConnections={}, wireOrder=[];
+
+function initWire(seed){
+  document.getElementById('gameWire').style.display='block';
+  wireSelected=null; wireConnections={};
+  // Seed determina el orden del lado derecho
+  const rng=seededRng(parseInt(seed)||12345);
+  wireOrder=[0,1,2,3].sort(()=>rng()-0.5);
+
+  const left=document.getElementById('wireLeft');
+  const right=document.getElementById('wireRight');
+  left.innerHTML=''; right.innerHTML='';
+
+  WIRE_COLORS.forEach((c,i)=>{
+    const b=document.createElement('div');
+    b.className='wire-btn'; b.dataset.idx=i; b.dataset.side='left';
+    b.style.background=c.bg; b.style.color=c.fg; b.style.borderColor=c.bg;
+    b.textContent='● '+c.name;
+    b.onclick=()=>selectWire(i,'left');
+    left.appendChild(b);
+  });
+  wireOrder.forEach(i=>{
+    const c=WIRE_COLORS[i];
+    const b=document.createElement('div');
+    b.className='wire-btn'; b.dataset.idx=i; b.dataset.side='right';
+    b.style.background=c.bg; b.style.color=c.fg; b.style.borderColor=c.bg;
+    b.textContent='○ '+c.name;
+    b.onclick=()=>selectWire(i,'right');
+    right.appendChild(b);
+  });
+  updateWireStatus();
+}
+
+function selectWire(idx,side){
+  if(wireConnections[idx]!==undefined) return; // ya conectado
+  playClick();
+  if(side==='left'){
+    wireSelected=idx;
+    document.querySelectorAll('#wireLeft .wire-btn').forEach(b=>{
+      b.classList.toggle('selected',parseInt(b.dataset.idx)===idx);
+    });
+  } else {
+    // lado derecho seleccionado: conectar con el seleccionado en la izquierda
+    if(wireSelected===null){ log('Primero selecciona un cable de la izquierda','lw'); return; }
+    if(wireSelected===idx){
+      wireConnections[idx]=idx;
+      markConnected(idx);
+      beep(600,0.1,0.3);
+    } else {
+      // wrong connection
+      beep(200,0.2,0.4,'sawtooth');
+      document.querySelectorAll('#wireRight .wire-btn').forEach(b=>{
+        if(parseInt(b.dataset.idx)===idx) b.classList.add('wrong');
+      });
+      setTimeout(()=>document.querySelectorAll('.wire-btn').forEach(b=>b.classList.remove('wrong')),400);
+    }
+    wireSelected=null;
+    document.querySelectorAll('#wireLeft .wire-btn').forEach(b=>b.classList.remove('selected'));
+    updateWireStatus();
+    if(Object.keys(wireConnections).length===4) showChalResult(true,'Circuito establecido');
+  }
+}
+
+function markConnected(idx){
+  document.querySelectorAll('.wire-btn').forEach(b=>{
+    if(parseInt(b.dataset.idx)===idx) b.classList.add('connected');
+  });
+}
+function updateWireStatus(){
+  const n=Object.keys(wireConnections).length;
+  document.getElementById('wireStatus').textContent=n+' / 4 conexiones';
+}
+function stopWire(){ wireSelected=null; wireConnections={}; }
+
+// ══════════════════════════════════════════════════════
+// ── MINIJUEGO: CODE CRACK
+// ══════════════════════════════════════════════════════
+let codeTarget='', codeInput='';
+
+function initCode(seed){
+  document.getElementById('gameCode').style.display='block';
+  // Código de 4 dígitos derivado del seed
+  const s=String(seed).replace(/\D/g,'').padEnd(8,'0');
+  codeTarget=s.slice(0,4);
+  codeInput='';
+  document.getElementById('codeHint').textContent=
+    'Frecuencia interceptada — introduce el código de acceso';
+  updateCodeDisplay();
+
+  const pad=document.getElementById('numpad');
+  pad.innerHTML='';
+  [1,2,3,4,5,6,7,8,9,'⌫',0,'✓'].forEach(v=>{
+    const b=document.createElement('button');
+    b.className='npbtn'+(v==='⌫'?' del':v==='✓'?' confirm':'');
+    b.textContent=v;
+    if(v==='⌫') b.onclick=()=>{ playClick(); codeInput=codeInput.slice(0,-1); updateCodeDisplay(); };
+    else if(v==='✓') b.onclick=submitCode;
+    else b.onclick=()=>{ playClick(); if(codeInput.length<4){ codeInput+=v; updateCodeDisplay(); if(codeInput.length===4) setTimeout(submitCode,300); } };
+    pad.appendChild(b);
+  });
+}
+
+function updateCodeDisplay(){
+  for(let i=0;i<4;i++){
+    const d=document.getElementById('d'+i);
+    d.textContent=codeInput[i]||'_';
+    d.className='code-digit'+(i===codeInput.length?' active':'');
+  }
+}
+
+function submitCode(){
+  if(codeInput.length<4){ beep(300,0.1,0.3); return; }
+  if(codeInput===codeTarget){
+    for(let i=0;i<4;i++) document.getElementById('d'+i).className='code-digit ok';
+    showChalResult(true,'Acceso concedido — código correcto');
+  } else {
+    for(let i=0;i<4;i++) document.getElementById('d'+i).className='code-digit err';
+    beep(180,0.3,0.5,'sawtooth');
+    document.getElementById('codeHint').textContent='INCORRECTO — inténtalo de nuevo';
+    setTimeout(()=>{
+      codeInput=''; updateCodeDisplay();
+      document.getElementById('codeHint').textContent='Frecuencia interceptada — introduce el código de acceso';
+    },700);
+  }
+}
+function stopCode(){ codeInput=''; codeTarget=''; }
+
+// ══════════════════════════════════════════════════════
+// ── MINIJUEGO: MORSE DECODE
+// ══════════════════════════════════════════════════════
+const MORSE_MAP={
+  A:'.-',B:'-...',C:'-.-.',D:'-..', E:'.',F:'..-.',G:'--.',H:'....',
+  I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',
+  Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',
+  Y:'-.--',Z:'--..'
+};
+const MORSE_INV=Object.fromEntries(Object.entries(MORSE_MAP).map(([k,v])=>[v,k]));
+let morseWord='', morsePlayTimer=null;
+
+function initMorse(seed){
+  document.getElementById('gameMorse').style.display='block';
+  document.getElementById('morseInput').value='';
+  // Seed puede ser morse directo ("... --- ...") o derivamos una palabra
+  let word='';
+  const seedStr=String(seed);
+  if(/^[A-Z]{2,6}$/i.test(seedStr.trim())){
+    word=seedStr.trim().toUpperCase();
+  } else {
+    // Derivar palabra de 3 letras del seed numérico
+    const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const n=parseInt(seedStr.replace(/\D/g,''))||54321;
+    word=letters[n%26]+letters[Math.floor(n/26)%26]+letters[Math.floor(n/676)%26];
+  }
+  morseWord=word;
+  // Mostrar morse en pantalla
+  const morseStr=word.split('').map(c=>MORSE_MAP[c]||'?').join('  ');
+  document.getElementById('morseSymbols').textContent=morseStr;
+  // Tabla de ayuda (las letras del word)
+  const hint=document.getElementById('morseHint');
+  hint.innerHTML='<strong style="color:var(--txt);display:block;margin-bottom:4px">REFERENCIA:</strong>'+
+    Object.entries(MORSE_MAP).map(([k,v])=>
+      `<span style="color:${word.includes(k)?'#f1c40f':'inherit'}">${k}: ${v}  </span>`
+    ).join('');
+
+  log('Morse interceptado para "'+word+'" — usa ▶ REPRODUCIR','lf');
+}
+
+function playMorse(){
+  if(morsePlayTimer) return;
+  const letters=morseWord.split('');
+  let delay=0;
+  const DOT=120, DASH=360, SYM_GAP=100, LET_GAP=300;
+  letters.forEach((letter,li)=>{
+    const code=MORSE_MAP[letter]||'';
+    code.split('').forEach((sym,si)=>{
+      const dur=sym==='.'?DOT:DASH;
+      const start=delay;
+      morsePlayTimer=setTimeout(()=>{
+        document.getElementById('morseLight').classList.add('on');
+        beep(660,dur/1000,0.5,'sine');
+        setTimeout(()=>document.getElementById('morseLight').classList.remove('on'),dur);
+      },start);
+      delay+=dur+SYM_GAP;
+    });
+    delay+=LET_GAP;
+  });
+  setTimeout(()=>{ morsePlayTimer=null; },delay+200);
+}
+
+function submitMorse(){
+  const ans=document.getElementById('morseInput').value.trim().toUpperCase();
+  if(!ans){ beep(300,0.1,0.3); return; }
+  if(ans===morseWord){
+    showChalResult(true,'Código descifrado: "'+morseWord+'"');
+  } else {
+    beep(180,0.3,0.5,'sawtooth');
+    document.getElementById('morseInput').value='';
+    document.getElementById('morseInput').placeholder='incorrecto, intenta de nuevo';
+    log('Respuesta incorrecta: "'+ans+'" ≠ "'+morseWord+'"','lw');
+  }
+}
+function stopMorse(){
+  if(morsePlayTimer){ clearTimeout(morsePlayTimer); morsePlayTimer=null; }
+  morseWord='';
+}
+
+// ══════════════════════════════════════════════════════
+// ── UTILIDADES
+// ══════════════════════════════════════════════════════
+function seededRng(seed){
+  let s=seed;
+  return function(){ s=(s^(s<<13))>>>0;s=(s^(s>>7))>>>0;s=(s^(s<<17))>>>0; return s/0xFFFFFFFF; };
+}
+
+// ── RADAR CANVAS ────────────────────────────────────────
+const cv=document.getElementById('rc'),cx2=cv.getContext('2d');
+const CR=98,CX=100,CY=100;
+const RING_C={dead:'#0d1520',cold:'#0d1e3a',warm:'#1a0d3a',hot:'#3a0d0d',vhot:'#4a0a0a',found:'#0a2a14'};
 function drawRadar(){
   requestAnimationFrame(drawRadar);
   cx2.clearRect(0,0,200,200);
-  const s=rssiToState(rssiSmooth), rc=RING_COLORS[s]||'#0d1520';
-  const sc=ST[s]?.c||'#00b4d8';
-
-  // Fondo
+  const s=rssiToState(rssiSmooth),rc=RING_C[s]||'#0d1520',sc=ST[s]?.c||'#00b4d8';
   cx2.fillStyle='#07090f';
   cx2.beginPath();cx2.arc(CX,CY,CR,0,Math.PI*2);cx2.fill();
-
-  // Anillos
   [0.3,0.55,0.78,1].forEach(r=>{
-    cx2.strokeStyle=rc; cx2.lineWidth=1;
+    cx2.strokeStyle=rc;cx2.lineWidth=1;
     cx2.beginPath();cx2.arc(CX,CY,CR*r,0,Math.PI*2);cx2.stroke();
   });
-
-  // Crosshair
   cx2.strokeStyle='#0d1a2a';cx2.lineWidth=1;
   cx2.beginPath();cx2.moveTo(CX-CR,CY);cx2.lineTo(CX+CR,CY);cx2.stroke();
   cx2.beginPath();cx2.moveTo(CX,CY-CR);cx2.lineTo(CX,CY+CR);cx2.stroke();
-
-  // Sweep (solo si hay señal)
   if(s!=='dead'){
     const speed=s==='found'?.14:s==='vhot'?.09:s==='hot'?.06:s==='warm'?.04:.025;
     radarA=(radarA+speed)%(Math.PI*2);
     cx2.save();cx2.translate(CX,CY);cx2.rotate(radarA);
-    // Sector sweep con gradiente lineal (no conical — usa canvas nativo)
-    cx2.beginPath();cx2.moveTo(0,0);
-    cx2.arc(0,0,CR,-0.3,0.3);cx2.closePath();
+    cx2.beginPath();cx2.moveTo(0,0);cx2.arc(0,0,CR,-0.3,0.3);cx2.closePath();
     const g=cx2.createLinearGradient(0,0,CR,0);
-    g.addColorStop(0,sc+'dd'); g.addColorStop(1,sc+'00');
-    cx2.fillStyle=g;cx2.fill();
-    cx2.restore();
+    g.addColorStop(0,sc+'dd');g.addColorStop(1,sc+'00');
+    cx2.fillStyle=g;cx2.fill();cx2.restore();
   }
-
-  // Blip central cuando cerca
   if(s==='hot'||s==='vhot'||s==='found'){
     const pr=s==='found'?7:s==='vhot'?16:28;
     const pulse=0.5+0.5*Math.sin(Date.now()/180);
@@ -529,41 +867,30 @@ function drawRadar(){
     cx2.fillStyle=sc+alpha;
     cx2.beginPath();cx2.arc(CX,CY,pr,0,Math.PI*2);cx2.fill();
   }
-
-  // Punto central
-  cx2.fillStyle=sc;
-  cx2.beginPath();cx2.arc(CX,CY,3,0,Math.PI*2);cx2.fill();
+  cx2.fillStyle=sc;cx2.beginPath();cx2.arc(CX,CY,3,0,Math.PI*2);cx2.fill();
 }
 drawRadar();
 
-// ── SERVICE WORKER ────────────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
+// ── SERVICE WORKER ──────────────────────────────────────
+if('serviceWorker' in navigator)
   navigator.serviceWorker.register('./sw.js')
-    .then(() => log('PWA: Service Worker registrado ✓', 'li'))
-    .catch(e => log('PWA: SW error — ' + e.message, 'le'));
-}
+    .then(()=>log('PWA: Service Worker ✓','li'))
+    .catch(e=>log('SW: '+e.message,'le'));
 
-// ── INIT ─────────────────────────────────────────────────────────────────────
-log('THLS Scanner v0.3 iniciado','li');
-log('Service UUID: '+SVC,'l');
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-const isHTTPS = location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1';
+// ── INIT ───────────────────────────────────────────────
+log('THLS Scanner v0.4 iniciado — sonido + 3 minijuegos','li');
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+const isSecure=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
 if(isIOS){
   document.getElementById('noteIOS').classList.add('show');
-  log('iOS/Safari detectado — Web Bluetooth NO disponible','le');
-  log('Usa el botón SIMULAR para probar la interfaz','lw');
-} else if(!isHTTPS){
+  log('iOS detectado — Web BT no disponible. Usa SIMULAR.','le');
+} else if(!isSecure){
   document.getElementById('noteHTTPS').classList.add('show');
-  log('⚠ HTTP detectado — Web Bluetooth requiere HTTPS o localhost','lw');
-  log('Sirve con: python3 -m http.server 8080  (abre en localhost:8080)','l');
-  log('O sube a Netlify Drop para HTTPS instantáneo','l');
-} else if(typeof navigator.bluetooth==='undefined'){
-  document.getElementById('noteHTTPS').classList.add('show');
-  log('Web Bluetooth no disponible — usa Chrome en Android','le');
+  log('HTTP detectado — BT requiere HTTPS o localhost','lw');
+} else if(!navigator.bluetooth){
+  log('Web Bluetooth no disponible — usa Chrome Android','lw');
 } else {
-  log('Web Bluetooth disponible ✓','li');
-  log('Asegúrate que el ESP32 está encendido y en modo advertising','l');
-  log('Si el selector aparece vacío: verifica que el nombre comience con THLS-','lw');
+  log('Web Bluetooth ✓ — ESP32 encendido? Nombre empieza con THLS-?','li');
 }
 </script>
 </body>
