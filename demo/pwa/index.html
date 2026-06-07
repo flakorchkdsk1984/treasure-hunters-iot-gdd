@@ -25,6 +25,14 @@ header{width:100%;background:var(--panel);border-bottom:1px solid var(--border);
 /* MAP CANVAS */
 .map-wrap{margin:12px auto 6px;position:relative;width:260px;height:260px}
 #mapCanvas{border-radius:50%}
+/* Anillo de pulso exterior del mapa */
+@keyframes mapPulse {
+  0%,100% { box-shadow: 0 0  0px  0px var(--map-pulse-color,#1976d2); }
+  50%      { box-shadow: 0 0 28px 10px var(--map-pulse-color,#1976d2); }
+}
+.map-wrap { border-radius:50%;
+            animation: mapPulse var(--map-pulse-dur,3s) ease-in-out infinite; }
+.map-wrap.dead { animation: none; }
 #mapLabel{position:absolute;bottom:-18px;width:100%;text-align:center;
           font-size:10px;color:var(--accent);letter-spacing:1px}
 /* CARDS */
@@ -345,6 +353,26 @@ let lastState='dead', tickCount=0;
 let bleDevice=null, gattServer=null;
 
 // ══════════════════════════════════════════════════════
+// ── VELOCIDAD DE PARPADEO por estado
+// ══════════════════════════════════════════════════════
+const PULSE_SPEED = {
+  dead:0, polar:4, cold:3, cool:2.5,
+  warm:2, hot:1.2, vhot:0.7, burning:0.35, found:0.15
+};
+
+function applyPulse(state, color) {
+  const wrap = document.querySelector('.map-wrap');
+  const spd  = PULSE_SPEED[state] || 0;
+  if (!spd) {
+    wrap.classList.add('dead');
+  } else {
+    wrap.classList.remove('dead');
+    wrap.style.setProperty('--map-pulse-color', color);
+    wrap.style.setProperty('--map-pulse-dur', spd + 's');
+  }
+}
+
+// ══════════════════════════════════════════════════════
 // ── UI UPDATE
 // ══════════════════════════════════════════════════════
 function updateUI(rssi){
@@ -372,6 +400,7 @@ function updateUI(rssi){
     beaconAngle = compassHeading; // señal mejoró en esta dirección
   }
   lastState = s;
+  applyPulse(s, st.c);
 }
 
 function stateMsg(s){
@@ -929,7 +958,14 @@ if('serviceWorker' in navigator)
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
 // ── INIT ──────────────────────────────────────────────
-log('THLS Scanner v1.0 — WiFi + Brújula + 9 estados','li');
+// Auto-detectar IP del servidor (localhost:8080 en test, 192.168.4.1 en ESP32)
+(function(){
+  const h = window.location.host;
+  if(h && h !== '' && !h.startsWith('192.168.4')) {
+    document.getElementById('ipInput').value = h;
+  }
+})();
+log('THLS Scanner v1.1 — WiFi + Brújula + 9 estados + Pulso','li');
 if(/iPad|iPhone|iPod/.test(navigator.userAgent)) document.getElementById('noteIOS').classList.add('show');
 log('1. Conecta WiFi a "THLS-C001" (pass: thls2024)','l');
 log('2. Pulsa ⬡ WIFI CONECTAR','l');

@@ -9,10 +9,19 @@
   body { font-family:monospace; background:#07090f; color:#fff;
          display:flex; flex-direction:column; align-items:center;
          padding:20px 16px; gap:12px; min-height:100vh; }
-  #circle { width:150px; height:150px; border-radius:50%; display:flex;
+
+  /* ── CÍRCULO CON PULSO ─────────────────────────── */
+  @keyframes sigPulse {
+    0%,100% { box-shadow: 0 0 0px  0px currentColor; }
+    50%      { box-shadow: 0 0 32px 12px currentColor; }
+  }
+  #circle { width:160px; height:160px; border-radius:50%; display:flex;
             flex-direction:column; align-items:center; justify-content:center;
-            border:3px solid #333; transition:background .4s,border-color .4s;
-            flex-shrink:0; }
+            border:3px solid #333; transition:background .4s,border-color .4s,color .4s;
+            flex-shrink:0;
+            animation: sigPulse 3s ease-in-out infinite; }
+  #circle.dead  { animation: none; }
+
   #rssi   { font-size:36px; font-weight:bold; }
   #dist   { font-size:12px; opacity:.7; margin-top:2px; }
   #state  { font-size:18px; font-weight:bold; letter-spacing:2px; text-align:center; }
@@ -42,16 +51,17 @@
 // Auto-detecta host: usa el servidor actual si no es 192.168.4.1 hardcodeado
 document.getElementById('ip').value = window.location.host || '192.168.4.1';
 
+// Velocidad de parpadeo por estado: más rápido = más cerca
 const COLORS = [
-  { min:-999, max:-94, bg:'#1a1a2e', label:'SIN SEÑAL'          },
-  { min:-94,  max:-84, bg:'#0d47a1', label:'POLAR'              },
-  { min:-84,  max:-75, bg:'#1976d2', label:'FRÍO'               },
-  { min:-75,  max:-67, bg:'#00838f', label:'FRESCO'             },
-  { min:-67,  max:-60, bg:'#7b1fa2', label:'TIBIO'              },
-  { min:-60,  max:-53, bg:'#c2185b', label:'CALIENTE'           },
-  { min:-53,  max:-47, bg:'#e64a19', label:'MUY CALIENTE'       },
-  { min:-47,  max:-41, bg:'#ff6f00', label:'ARDIENDO'           },
-  { min:-41,  max:  0, bg:'#00c853', label:'BALIZA LOCALIZADA'  },
+  { min:-999, max:-94, bg:'#1a1a2e', label:'SIN SEÑAL',         pulse:0    },
+  { min:-94,  max:-84, bg:'#0d47a1', label:'POLAR',             pulse:4    },
+  { min:-84,  max:-75, bg:'#1976d2', label:'FRÍO',              pulse:3    },
+  { min:-75,  max:-67, bg:'#00838f', label:'FRESCO',            pulse:2.5  },
+  { min:-67,  max:-60, bg:'#7b1fa2', label:'TIBIO',             pulse:2    },
+  { min:-60,  max:-53, bg:'#c2185b', label:'CALIENTE',          pulse:1.2  },
+  { min:-53,  max:-47, bg:'#e64a19', label:'MUY CALIENTE',      pulse:0.7  },
+  { min:-47,  max:-41, bg:'#ff6f00', label:'ARDIENDO',          pulse:0.35 },
+  { min:-41,  max:  0, bg:'#00c853', label:'BALIZA LOCALIZADA', pulse:0.15 },
 ];
 
 let timer = null;
@@ -60,6 +70,20 @@ function getState(r) { return COLORS.find(c => r >= c.min && r < c.max) || COLOR
 function getDist(r, txp=-59) {
   const d = Math.pow(10, (txp-r)/25);
   return d<1?'< 1 m':d>500?'> 500 m':d.toFixed(0)+' m';
+}
+
+function applyPulse(s) {
+  const circ = document.getElementById('circle');
+  if (!s.pulse) {
+    // Sin señal: sin animación
+    circ.classList.add('dead');
+    circ.style.animationDuration = '';
+    circ.style.color = '#333';
+  } else {
+    circ.classList.remove('dead');
+    circ.style.animationDuration = s.pulse + 's';
+    circ.style.color = s.bg;   // box-shadow usa currentColor
+  }
 }
 
 async function poll() {
@@ -71,11 +95,12 @@ async function poll() {
     const s = getState(rssi);
     document.getElementById('rssi').textContent  = rssi+' dBm';
     document.getElementById('dist').textContent  = '≈ '+getDist(rssi, d.txPower??-59);
-    document.getElementById('state').textContent = s.label;
-    document.getElementById('circle').style.background  = s.bg+'55';
+    document.getElementById('state').textContent = s.label + (d.challenge ? '  ⚠' : '');
+    document.getElementById('circle').style.background  = s.bg+'33';
     document.getElementById('circle').style.borderColor = s.bg;
     document.getElementById('status').textContent = 'OK · '+new Date().toLocaleTimeString()
-      +(d.challenge?' · ⚠ CHALLENGE':'');
+      +(d.challenge?' · CHALLENGE ACTIVO':'');
+    applyPulse(s);
   } catch(e) {
     document.getElementById('rssi').textContent  = '✗';
     document.getElementById('dist').textContent  = e.name==='TimeoutError'?'timeout':e.message.slice(0,25);
@@ -83,6 +108,7 @@ async function poll() {
     document.getElementById('circle').style.background  = '#1a0000aa';
     document.getElementById('circle').style.borderColor = '#c00';
     document.getElementById('status').textContent = '¿WiFi THLS-C001 conectado? ¿ESP32 encendido?';
+    applyPulse(COLORS[0]); // sin pulso en error
   }
 }
 
