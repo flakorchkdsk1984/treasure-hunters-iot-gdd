@@ -35,10 +35,13 @@
 <div id="state">SIN CONEXIÓN</div>
 <div id="status">Ingresa la IP del ESP32 y presiona START</div>
 
-<input id="ip" value="192.168.4.1" placeholder="192.168.4.1">
+<input id="ip" value="" placeholder="192.168.4.1">
 <button onclick="toggle()">▶ START</button>
 
 <script>
+// Auto-detecta host: usa el servidor actual si no es 192.168.4.1 hardcodeado
+document.getElementById('ip').value = window.location.host || '192.168.4.1';
+
 const COLORS = [
   { min:-999, max:-94, bg:'#1a1a2e', label:'SIN SEÑAL'          },
   { min:-94,  max:-84, bg:'#0d47a1', label:'POLAR'              },
