@@ -375,6 +375,7 @@ function log(msg,cls='l'){
 // ══════════════════════════════════════════════════════
 async function connectBLE(){
   if(!checkBTAvailable()) return;
+  ensureAudio(); // AudioContext en contexto de gesto del usuario
   stopSim(); hasRealRSSI=false;
   log('Buscando dispositivos THLS-*...','li');
   setBtnState('connecting');
@@ -389,6 +390,7 @@ async function connectBLE(){
 
 async function connectBLEAny(){
   if(!checkBTAvailable()) return;
+  ensureAudio(); // AudioContext en contexto de gesto del usuario
   stopSim(); hasRealRSSI=false;
   log('Buscando CUALQUIER dispositivo BLE...','lw');
   setBtnState('connecting');
@@ -516,6 +518,7 @@ function setBtnState(s){
 // ══════════════════════════════════════════════════════
 function startSimulation(){
   stopSim(); simMode=true; simPhase=0;
+  ensureAudio(); // CRÍTICO: crear AudioContext aquí, en el contexto del gesto del usuario
   log('=== MODO SIMULACIÓN — acercándose a baliza THLS-C001 ===','li');
   document.getElementById('hstatus').textContent='SIMULANDO';
   document.getElementById('btnConnect').disabled=true;
@@ -532,7 +535,10 @@ function startSimulation(){
     const rssi=Math.round(Math.max(-98,Math.min(-40,base+(Math.random()-0.5)*4)));
     updateUI(rssi);
 
-    if(rssi>-55&&!challengeOpened){
+    // FIX: usar rssiToState en vez de comparar número directamente
+    // rssiToState retorna 'found' cuando rssi >= -55, pero rssi > -55 nunca
+    // matcheaba el caso exacto rssi === -55
+    if(rssiToState(rssi)==='found' && !challengeOpened){
       challengeOpened=true;
       log('¡CHALLENGE ACTIVADO por el ESP32!','lf');
       playChalAlert();
