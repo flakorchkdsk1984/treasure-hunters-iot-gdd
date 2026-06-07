@@ -137,6 +137,7 @@ button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
 .mbtn-ok{background:#0d2a0d;color:#2e7d32;border-color:#2e7d32}
 .morse-table{font-size:10px;color:#334;line-height:1.8;margin-top:8px;column-count:2;gap:8px}
 .morse-table span{color:var(--txt)}
+@keyframes pb{0%,100%{box-shadow:0 0 0 rgba(229,57,53,0)}50%{box-shadow:0 0 20px rgba(229,57,53,.5)}}
 </style>
 </head>
 <body>
@@ -164,6 +165,16 @@ button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
 <div class="card">
   <div class="barlabel"><span>INTENSIDAD</span><span id="barPct">0%</span></div>
   <div class="track"><div id="sigBar"></div></div>
+</div>
+
+<!-- BANNER INFILTRACIÓN — aparece cuando hay challenge disponible -->
+<div id="chalBanner" onclick="openCurrentChallenge()" style="display:none;
+  width:calc(100% - 32px);max-width:380px;margin:6px 16px;
+  background:#120505;border:2px solid #e53935;border-radius:8px;
+  padding:16px;text-align:center;cursor:pointer;animation:pb 1s infinite;
+  -webkit-tap-highlight-color:transparent">
+  <div style="font-size:13px;color:#e53935;font-weight:bold;letter-spacing:2px">⚠ INFILTRACIÓN DISPONIBLE ⚠</div>
+  <div style="font-size:11px;color:var(--txt);margin-top:4px" id="chalBannerSub">Toca aquí para iniciar</div>
 </div>
 
 <div class="btnrow">
@@ -305,6 +316,7 @@ let pollTimer=null, simTimer=null, simPhase=0;
 let rssiSmooth=-100, rssiHistory=[], txPower=-59, radarA=0;
 let simMode=false, hasRealRSSI=false;
 let tickInterval=null;
+let currentChalData=null; // challenge activo para el banner
 
 // ── SIGNAL STATES ──────────────────────────────────────
 const ST={
@@ -443,12 +455,12 @@ async function finishConnect(){
       const d=JSON.parse(new TextDecoder().decode(ev.target.value));
       if(d.txPower) txPower=d.txPower;
       log('NOTIFY challenge='+(d.challenge?'ON':'OFF'),'lf');
-      if(d.challenge) openChallenge(chal);
-      else closeChal();
+      if(d.challenge) showChalBanner(chal);
+      else { hideChalBanner(); closeChal(); }
     });
     log('Notificaciones activas — presiona BOOT en el ESP32 para challenge ✓','li');
     setBtnState('connected');
-    if(info.challenge) openChallenge(chal);
+    if(info.challenge) showChalBanner(chal);
   }catch(e){
     log('Servicio THLS no encontrado en este dispositivo: '+e.message,'lw');
     log('(dispositivo conectado — RSSI funcionando)','l');
@@ -540,15 +552,14 @@ function startSimulation(){
     // matcheaba el caso exacto rssi === -55
     if(rssiToState(rssi)==='found' && !challengeOpened){
       challengeOpened=true;
-      log('¡CHALLENGE ACTIVADO por el ESP32!','lf');
+      log('¡CHALLENGE ACTIVADO — baliza localizada!','lf');
       playChalAlert();
-      // Rotar tipo de minijuego en simulación
       const tipos=['wire_connect','qr_scan','morse_decode'];
       const tipo=tipos[Math.floor(Math.random()*3)];
       chalData.type=tipo;
-      setTimeout(()=>openChallenge(chalData),800);
+      showChalBanner(chalData); // mostrar banner clickeable
     }
-    if(rssi<-80&&challengeOpened) challengeOpened=false;
+    if(rssi<-80&&challengeOpened){ challengeOpened=false; hideChalBanner(); }
   },800);
 }
 
@@ -557,6 +568,25 @@ function stopSim(){
   simMode=false;
   document.getElementById('btnConnect').disabled=false;
   document.getElementById('btnDisc').classList.remove('show');
+}
+
+function openCurrentChallenge(){
+  ensureAudio();
+  if(currentChalData) openChallenge(currentChalData);
+}
+
+function showChalBanner(chal){
+  currentChalData=chal;
+  const typeLabels={wire_connect:'CONECTAR CABLES',qr_scan:'DESCIFRAR CÓDIGO',morse_decode:'CÓDIGO MORSE'};
+  document.getElementById('chalBannerSub').textContent=
+    (typeLabels[chal.type]||chal.type.toUpperCase())+' · Toca para iniciar';
+  document.getElementById('chalBanner').style.display='block';
+  if(navigator.vibrate) navigator.vibrate([100,60,100,60,300]);
+}
+
+function hideChalBanner(){
+  document.getElementById('chalBanner').style.display='none';
+  currentChalData=null;
 }
 
 // ══════════════════════════════════════════════════════
