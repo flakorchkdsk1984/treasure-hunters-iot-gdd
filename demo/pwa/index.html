@@ -11,8 +11,6 @@
 <title>THLS Scanner</title>
 <style>
 :root{
-  --dead:#1a1a2e;--cold:#1565c0;--warm:#6a1ea0;
-  --hot:#d84315;--vhot:#e53935;--found:#2e7d32;
   --bg:#07090f;--panel:#0d1117;--border:#1e3a5f;
   --txt:#8fa8bf;--bright:#e0eaf2;--accent:#00b4d8;
 }
@@ -21,90 +19,99 @@ body{background:var(--bg);color:var(--txt);font-family:'Courier New',monospace;
      display:flex;flex-direction:column;align-items:center;min-height:100vh;
      padding-bottom:32px;overflow-x:hidden;user-select:none}
 header{width:100%;background:var(--panel);border-bottom:1px solid var(--border);
-       padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+       padding:8px 14px;display:flex;justify-content:space-between;align-items:center}
 .logo{font-size:11px;color:var(--accent);letter-spacing:2px}.logo b{color:#e53935}
-.hstatus{font-size:10px;color:#334}
-.radar-wrap{margin:14px auto 6px;position:relative;width:200px;height:200px}
-canvas{border-radius:50%}
-#rlabel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-        font-size:10px;color:var(--accent);text-align:center;pointer-events:none;
-        text-shadow:0 0 8px var(--accent);letter-spacing:1px}
+#hstatus{font-size:10px;color:#334}
+/* MAP CANVAS */
+.map-wrap{margin:12px auto 6px;position:relative;width:260px;height:260px}
+#mapCanvas{border-radius:50%}
+#mapLabel{position:absolute;bottom:-18px;width:100%;text-align:center;
+          font-size:10px;color:var(--accent);letter-spacing:1px}
+/* CARDS */
 .card{width:calc(100% - 32px);max-width:380px;background:var(--panel);
-      border:1px solid var(--border);border-radius:8px;padding:12px 14px;
-      margin:5px 16px;transition:border-color .3s}
-.clabel{font-size:10px;color:#334;letter-spacing:2px;margin-bottom:5px}
-#stateVal{font-size:20px;font-weight:bold;letter-spacing:1px;color:var(--bright);
-          transition:color .3s;text-shadow:0 0 12px currentColor}
-#stateMsg{font-size:11px;margin-top:5px;color:var(--txt);min-height:15px}
+      border:1px solid var(--border);border-radius:8px;padding:10px 14px;
+      margin:4px 16px;transition:border-color .3s}
+.clabel{font-size:10px;color:#334;letter-spacing:2px;margin-bottom:4px}
+#stateVal{font-size:22px;font-weight:bold;letter-spacing:1px;color:var(--bright);
+          transition:color .3s;text-shadow:0 0 14px currentColor}
+#stateMsg{font-size:11px;margin-top:4px;color:var(--txt);min-height:14px}
 .barlabel{display:flex;justify-content:space-between;font-size:10px;
-          color:#334;letter-spacing:1px;margin-bottom:7px}
+          color:#334;letter-spacing:1px;margin-bottom:6px}
 .track{background:#050709;border-radius:3px;height:10px;
        border:1px solid var(--border);overflow:hidden}
-#sigBar{height:100%;width:0%;border-radius:3px;transition:width .5s,background .4s;background:var(--cold)}
-#rssiLive{font-size:28px;font-weight:bold;color:var(--bright);text-align:center;
-          padding:6px 0;text-shadow:0 0 14px currentColor;transition:color .3s}
+#sigBar{height:100%;width:0%;border-radius:3px;transition:width .5s,background .5s}
+#rssiLive{font-size:30px;font-weight:bold;color:var(--bright);text-align:center;
+          padding:4px 0;text-shadow:0 0 16px currentColor;transition:color .3s}
 #distLive{font-size:11px;color:var(--txt);text-align:center;margin-top:2px}
-.btnrow{width:calc(100% - 32px);max-width:380px;margin:6px 16px 2px;display:flex;gap:8px}
-button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
-       letter-spacing:1px;border:none;border-radius:6px;padding:13px;
-       cursor:pointer;flex:1;transition:all .2s;-webkit-tap-highlight-color:transparent}
-#btnConnect{background:var(--accent);color:#07090f}
-#btnConnect:disabled{background:#1e3a5f;color:#334;cursor:not-allowed}
-#btnConnect:active{transform:scale(.97)}
-#btnConnectAll{background:#0d1a2a;color:var(--accent);border:1px solid var(--accent);display:none}
-#btnConnectAll.show{display:block}
-#btnConnectAll:active{transform:scale(.97)}
-#btnDisc{background:#120505;color:#e53935;border:1px solid #e53935;display:none}
-#btnDisc.show{display:block}
+/* BUTTONS */
+.btnrow{width:calc(100% - 32px);max-width:380px;margin:5px 16px 2px;display:flex;gap:6px}
+button{font-family:'Courier New',monospace;font-size:11px;font-weight:bold;
+       letter-spacing:1px;border:none;border-radius:6px;padding:11px 8px;
+       cursor:pointer;flex:1;transition:all .15s;-webkit-tap-highlight-color:transparent}
+button:active{transform:scale(.95)}
+#btnWifi{background:var(--accent);color:#07090f}
+#btnWifi:disabled{background:#1e3a5f;color:#334;cursor:not-allowed}
+#btnStop{background:#120505;color:#e53935;border:1px solid #e53935;display:none}
+#btnStop.show{display:block}
+#btnBLE{background:#0d1a2a;color:var(--accent);border:1px solid var(--accent)}
 #btnSim{background:#0d1a0d;color:#2e7d32;border:1px solid #2e7d32}
-#btnSim:active{transform:scale(.97)}
+#btnCompass{background:#1a0d2a;color:#9c27b0;border:1px solid #9c27b0}
+/* IP INPUT */
+.ip-row{width:calc(100% - 32px);max-width:380px;margin:4px 16px;display:flex;gap:6px;align-items:center}
+.ip-label{font-size:10px;color:#334;white-space:nowrap}
+#ipInput{flex:1;background:#050709;border:1px solid var(--border);border-radius:6px;
+         padding:8px;font-family:'Courier New',monospace;font-size:13px;
+         color:var(--bright);outline:none}
+#ipInput:focus{border-color:var(--accent)}
+/* NOTES */
 .note{width:calc(100% - 32px);max-width:380px;margin:4px 16px;font-size:10px;
-      color:#f39c12;background:#130e00;border:1px solid #6a4800;
-      border-radius:6px;padding:8px 12px;display:none}
+      color:#f39c12;background:#130e00;border:1px solid #6a4800;border-radius:6px;
+      padding:8px 12px;display:none}
 .note.show{display:block}
 .note code{color:#ffd;background:#0a0800;padding:1px 4px;border-radius:3px}
+/* CHALLENGE BANNER */
+#chalBanner{display:none;width:calc(100% - 32px);max-width:380px;margin:6px 16px;
+            background:#120505;border:2px solid #e53935;border-radius:8px;
+            padding:16px;text-align:center;cursor:pointer;
+            animation:pb 1s infinite;-webkit-tap-highlight-color:transparent}
+#chalBanner:active{transform:scale(.97)}
+@keyframes pb{0%,100%{box-shadow:0 0 0 rgba(229,57,53,0)}50%{box-shadow:0 0 20px rgba(229,57,53,.5)}}
+/* TERMINAL */
 .term{width:calc(100% - 32px);max-width:380px;background:#05080c;
       border:1px solid var(--border);border-radius:8px;padding:8px 10px;
-      margin:8px 16px;max-height:120px;overflow-y:auto;font-size:10px;line-height:1.7}
+      margin:6px 16px;max-height:110px;overflow-y:auto;font-size:10px;line-height:1.7}
 .l{color:#1e3a5f}.li{color:#27ae60}.lw{color:#f39c12}
-.le{color:#e74c3c}.lr{color:var(--accent);font-weight:bold}
-.lf{color:#f1c40f;font-weight:bold}
-
+.le{color:#e74c3c}.lr{color:var(--accent);font-weight:bold}.lf{color:#f1c40f;font-weight:bold}
 /* ── CHALLENGE OVERLAY ── */
-#chalOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
-             z-index:100;flex-direction:column;align-items:center;overflow-y:auto;
-             padding:20px 16px 40px}
+#chalOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.93);
+             z-index:100;flex-direction:column;align-items:center;
+             overflow-y:auto;padding:20px 16px 40px}
 #chalOverlay.show{display:flex}
 .co-title{font-size:13px;color:#e53935;font-weight:bold;letter-spacing:3px;margin-bottom:4px;text-align:center}
-.co-sub{font-size:11px;color:var(--txt);margin-bottom:16px;text-align:center}
-.co-timer{font-size:36px;font-weight:bold;color:var(--bright);text-shadow:0 0 20px currentColor;
-          margin-bottom:12px;min-width:60px;text-align:center}
+.co-sub{font-size:11px;color:var(--txt);margin-bottom:14px;text-align:center}
+.co-timer{font-size:38px;font-weight:bold;color:var(--bright);
+          text-shadow:0 0 20px currentColor;margin-bottom:10px;text-align:center}
 .co-timer.urgent{color:#e53935;animation:pulse .5s infinite alternate}
 @keyframes pulse{from{opacity:1}to{opacity:.4}}
 .co-result{font-size:18px;font-weight:bold;margin:12px 0;text-align:center;display:none}
-
-/* ── MINIJUEGO WIRE CONNECT ── */
+/* WIRE GAME */
 #gameWire{width:100%;max-width:340px}
 .wire-board{display:flex;justify-content:space-between;gap:10px;margin:8px 0}
-.wire-col{display:flex;flex-direction:column;gap:10px;flex:1}
+.wire-col{display:flex;flex-direction:column;gap:8px;flex:1}
 .wire-btn{padding:12px 8px;border-radius:6px;border:2px solid #334;
-          font-size:12px;font-weight:bold;text-align:center;cursor:pointer;
-          transition:all .15s;position:relative}
-.wire-btn.selected{transform:scale(1.06);border-color:#fff;box-shadow:0 0 12px currentColor}
-.wire-btn.connected{opacity:.5;cursor:default;border-style:dashed}
+          font-size:11px;font-weight:bold;text-align:center;cursor:pointer;transition:all .15s}
+.wire-btn.selected{transform:scale(1.05);border-color:#fff!important;box-shadow:0 0 12px currentColor}
+.wire-btn.connected{opacity:.45;cursor:default;border-style:dashed!important}
 .wire-btn.wrong{animation:shake .3s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
-.wire-connections{margin:8px 0;font-size:10px;color:var(--txt);text-align:center}
-
-/* ── MINIJUEGO CODE CRACK ── */
+/* CODE GAME */
 #gameCode{width:100%;max-width:300px}
 .code-display{display:flex;gap:10px;justify-content:center;margin:10px 0}
-.code-digit{width:50px;height:60px;background:#050709;border:2px solid var(--border);
+.code-digit{width:52px;height:62px;background:#050709;border:2px solid var(--border);
             border-radius:8px;display:flex;align-items:center;justify-content:center;
-            font-size:30px;font-weight:bold;color:var(--bright);transition:border-color .2s}
+            font-size:32px;font-weight:bold;color:var(--bright);transition:border-color .2s}
 .code-digit.active{border-color:var(--accent);box-shadow:0 0 8px var(--accent)}
-.code-digit.ok{border-color:#2e7d32}
-.code-digit.err{border-color:#e53935;animation:shake .3s}
+.code-digit.ok{border-color:#2e7d32}.code-digit.err{border-color:#e53935;animation:shake .3s}
 .numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px auto;max-width:240px}
 .npbtn{padding:14px;border-radius:6px;border:1px solid var(--border);
        background:#0d1520;color:var(--bright);font-size:16px;font-weight:bold;
@@ -113,13 +120,11 @@ button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
 .npbtn.del{color:#e53935;border-color:#e53935}
 .npbtn.confirm{background:#0d2a0d;color:#2e7d32;border-color:#2e7d32;grid-column:1/-1}
 .code-hint{font-size:10px;color:#334;text-align:center;margin:4px 0}
-
-/* ── MINIJUEGO MORSE ── */
+/* MORSE GAME */
 #gameMorse{width:100%;max-width:320px}
 .morse-display{background:#050709;border:1px solid var(--border);border-radius:8px;
-               padding:12px;margin:8px 0;text-align:center;min-height:50px}
-.morse-symbols{font-size:22px;letter-spacing:6px;color:var(--accent);
-               font-weight:bold;word-break:break-all}
+               padding:12px;margin:8px 0;text-align:center}
+.morse-symbols{font-size:20px;letter-spacing:5px;color:var(--accent);font-weight:bold;word-break:break-all}
 .morse-light{width:40px;height:40px;border-radius:50%;margin:8px auto;
              background:#0d1520;border:2px solid var(--border);transition:background .05s,box-shadow .05s}
 .morse-light.on{background:#f1c40f;box-shadow:0 0 20px #f1c40f}
@@ -130,29 +135,27 @@ button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
 .morse-input:focus{outline:none;border-color:var(--accent)}
 .morse-actions{display:flex;gap:8px;margin:6px 0}
 .mbtn{flex:1;padding:12px;border-radius:6px;border:1px solid;
-      font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
-      cursor:pointer;transition:all .15s}
+      font-family:'Courier New',monospace;font-size:12px;font-weight:bold;cursor:pointer}
 .mbtn:active{transform:scale(.95)}
 .mbtn-play{background:#0d1a2a;color:var(--accent);border-color:var(--accent)}
 .mbtn-ok{background:#0d2a0d;color:#2e7d32;border-color:#2e7d32}
-.morse-table{font-size:10px;color:#334;line-height:1.8;margin-top:8px;column-count:2;gap:8px}
-.morse-table span{color:var(--txt)}
-@keyframes pb{0%,100%{box-shadow:0 0 0 rgba(229,57,53,0)}50%{box-shadow:0 0 20px rgba(229,57,53,.5)}}
+.morse-table{font-size:9px;color:#334;line-height:1.8;margin-top:6px;column-count:3;gap:4px}
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">TREASURE <b>HUNTERS</b> IoT</div>
-  <div class="hstatus" id="hstatus">DESCONECTADO</div>
+  <div id="hstatus">DESCONECTADO</div>
 </header>
 
-<div class="radar-wrap">
-  <canvas id="rc" width="200" height="200"></canvas>
-  <div id="rlabel">INACTIVO</div>
+<!-- MAPA BRÚJULA -->
+<div class="map-wrap">
+  <canvas id="mapCanvas" width="260" height="260"></canvas>
+  <div id="mapLabel">SIN SEÑAL</div>
 </div>
 
-<div class="card" id="rssiCard">
+<div class="card">
   <div class="clabel">RSSI EN TIEMPO REAL</div>
   <div id="rssiLive">— dBm</div>
   <div id="distLive">conecta para medir</div>
@@ -160,55 +163,59 @@ button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
 <div class="card">
   <div class="clabel">ESTADO DE SEÑAL</div>
   <div id="stateVal">SIN SEÑAL</div>
-  <div id="stateMsg">Presiona CONECTAR o SIMULAR</div>
+  <div id="stateMsg">Conecta el WiFi "THLS-C001" y presiona CONECTAR</div>
 </div>
 <div class="card">
   <div class="barlabel"><span>INTENSIDAD</span><span id="barPct">0%</span></div>
   <div class="track"><div id="sigBar"></div></div>
 </div>
 
-<!-- BANNER INFILTRACIÓN — aparece cuando hay challenge disponible -->
-<div id="chalBanner" onclick="openCurrentChallenge()" style="display:none;
-  width:calc(100% - 32px);max-width:380px;margin:6px 16px;
-  background:#120505;border:2px solid #e53935;border-radius:8px;
-  padding:16px;text-align:center;cursor:pointer;animation:pb 1s infinite;
-  -webkit-tap-highlight-color:transparent">
+<!-- CHALLENGE BANNER -->
+<div id="chalBanner" onclick="openCurrentChallenge()" style="display:none">
   <div style="font-size:13px;color:#e53935;font-weight:bold;letter-spacing:2px">⚠ INFILTRACIÓN DISPONIBLE ⚠</div>
-  <div style="font-size:11px;color:var(--txt);margin-top:4px" id="chalBannerSub">Toca aquí para iniciar</div>
+  <div style="font-size:11px;color:var(--txt);margin-top:4px" id="chalBannerSub">Toca para iniciar misión</div>
 </div>
 
-<div class="btnrow">
-  <button id="btnConnect"    onclick="connectBLE()">⬡ CONECTAR</button>
-  <button id="btnDisc"       onclick="disconnect()">✕ CORTAR</button>
-</div>
-<div class="btnrow">
-  <button id="btnConnectAll" onclick="connectBLEAny()">⬡ BUSCAR CUALQUIER BLE</button>
-</div>
-<div class="btnrow">
-  <button id="btnSim" onclick="startSimulation()">▷ SIMULAR SIN ESP32</button>
+<!-- IP CONFIG -->
+<div class="ip-row">
+  <span class="ip-label">IP BEACON:</span>
+  <input id="ipInput" type="text" value="192.168.4.1" placeholder="192.168.4.1" autocomplete="off" autocorrect="off">
 </div>
 
+<!-- BOTONES -->
+<div class="btnrow">
+  <button id="btnWifi"    onclick="startWiFi()">⬡ WIFI CONECTAR</button>
+  <button id="btnStop"    onclick="stopAll()">✕ DETENER</button>
+</div>
+<div class="btnrow">
+  <button id="btnBLE"     onclick="startBLE()">⬡ BLE STANDBY</button>
+  <button id="btnCompass" onclick="requestCompass()">🧭 BRÚJULA</button>
+</div>
+<div class="btnrow">
+  <button id="btnSim"     onclick="startSimulation()">▷ SIMULAR</button>
+</div>
+
+<div class="note" id="noteMixed">
+  ⚠ <strong>Contenido mixto:</strong> la PWA está en HTTPS pero el ESP32 usa HTTP.<br>
+  Sirve la PWA desde HTTP: <code>python3 -m http.server 8080</code> y abre en <code>localhost:8080</code><br>
+  O accede directamente a <code>http://192.168.4.1</code> (cuando el ESP32 sirva la web).
+</div>
 <div class="note" id="noteIOS">
-  ⚠ <strong>iOS/Safari no soporta Web Bluetooth.</strong> Usa Chrome en Android o el botón SIMULAR.
+  ⚠ iOS/Safari: Web Bluetooth no disponible. WiFi funciona normalmente.
 </div>
-<div class="note" id="noteHTTPS">
-  ⚠ Web Bluetooth requiere <strong>HTTPS</strong> o <strong>localhost</strong>.<br>
-  <code>python3 -m http.server 8080</code> y abre en <code>localhost:8080</code>
-</div>
-<div class="note" id="noteRSSI">
-  ℹ Para RSSI real: <code>chrome://flags/#enable-experimental-web-platform-features</code> → Enabled → Reiniciar Chrome.
-  Sin la flag la PWA usa RSSI estimado (aun funciona).
+<div class="note" id="noteCompass">
+  ℹ Brújula activa — <span id="compassDeg">0°</span> | Rota el dispositivo para orientarte.
+  La flecha apunta hacia donde miras. El punto rojo es la baliza estimada.
 </div>
 
 <div class="term" id="term"></div>
 
-<!-- ═══════════ CHALLENGE OVERLAY ═══════════ -->
+<!-- ═══ CHALLENGE OVERLAY ═══ -->
 <div id="chalOverlay">
-  <div class="co-title">⚠ INFILTRACIÓN DISPONIBLE ⚠</div>
+  <div class="co-title">⚠ INFILTRACIÓN ⚠</div>
   <div class="co-sub" id="chalSub">—</div>
   <div class="co-timer" id="chalTimer">60</div>
 
-  <!-- Wire Connect -->
   <div id="gameWire" style="display:none">
     <div class="card" style="max-width:340px;width:100%">
       <div class="clabel">CONECTAR CABLES — empareja colores</div>
@@ -216,14 +223,13 @@ button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
         <div class="wire-col" id="wireLeft"></div>
         <div class="wire-col" id="wireRight"></div>
       </div>
-      <div class="wire-connections" id="wireStatus">0 / 4 conexiones</div>
+      <div style="font-size:10px;color:var(--txt);text-align:center;margin-top:6px" id="wireStatus">0/4 conectados</div>
     </div>
   </div>
 
-  <!-- Code Crack -->
   <div id="gameCode" style="display:none">
     <div class="card" style="max-width:300px;width:100%">
-      <div class="clabel">DESCIFRAR CÓDIGO — 4 dígitos</div>
+      <div class="clabel">DESCIFRAR CÓDIGO</div>
       <div class="code-display">
         <div class="code-digit" id="d0">_</div>
         <div class="code-digit" id="d1">_</div>
@@ -235,10 +241,9 @@ button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
     </div>
   </div>
 
-  <!-- Morse Decode -->
   <div id="gameMorse" style="display:none">
     <div class="card" style="max-width:320px;width:100%">
-      <div class="clabel">DECODIFICAR MORSE — escucha y transcribe</div>
+      <div class="clabel">DECODIFICAR MORSE</div>
       <div class="morse-display">
         <div class="morse-symbols" id="morseSymbols">? ? ?</div>
         <div class="morse-light" id="morseLight"></div>
@@ -246,8 +251,7 @@ button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
       <div class="morse-actions">
         <button class="mbtn mbtn-play" onclick="playMorse()">▶ REPRODUCIR</button>
       </div>
-      <input type="text" class="morse-input" id="morseInput"
-             placeholder="escribe aquí" maxlength="8"
+      <input type="text" class="morse-input" id="morseInput" placeholder="escribe aquí" maxlength="8"
              oninput="this.value=this.value.toUpperCase().replace(/[^A-Z]/g,'')">
       <div class="morse-actions">
         <button class="mbtn mbtn-ok" onclick="submitMorse()">✓ CONFIRMAR</button>
@@ -265,328 +269,416 @@ button{font-family:'Courier New',monospace;font-size:12px;font-weight:bold;
 </div>
 
 <script>
+const DEG = Math.PI / 180;
+
 // ══════════════════════════════════════════════════════
-// ── AUDIO ENGINE (Web Audio API)
+// ── AUDIO ENGINE
 // ══════════════════════════════════════════════════════
 let audioCtx = null;
 function ensureAudio(){
   if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended') audioCtx.resume();
 }
-function beep(freq=440, dur=0.1, vol=0.3, type='sine', delay=0){
-  ensureAudio();
-  const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
-  osc.connect(g); g.connect(audioCtx.destination);
-  osc.type=type; osc.frequency.value=freq;
+function beep(freq=440,dur=0.1,vol=0.3,type='sine',delay=0){
+  if(!audioCtx) return;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.type=type; o.frequency.value=freq;
   const t=audioCtx.currentTime+delay;
   g.gain.setValueAtTime(0,t);
   g.gain.linearRampToValueAtTime(vol,t+0.01);
   g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-  osc.start(t); osc.stop(t+dur+0.01);
+  o.start(t); o.stop(t+dur+0.05);
 }
-function playSuccess(){
-  [523,659,784,1047].forEach((f,i)=>beep(f,0.18,0.4,'sine',i*0.13));
-}
-function playFail(){
-  beep(180,0.5,0.5,'sawtooth');
-}
-function playClick(){ beep(800,0.04,0.2); }
-function playChalAlert(){
-  [440,550,440,550,660].forEach((f,i)=>beep(f,0.12,0.4,'square',i*0.15));
-}
-function playProximityTick(rssi){
-  // Más fuerte y más agudo cuanto más cerca
-  const s=rssiToState(rssi);
-  const freqMap={dead:0,cold:300,warm:420,hot:540,vhot:660,found:880};
-  const f=freqMap[s]||0;
-  if(f>0) beep(f,0.04,0.15,'sine');
+function playSuccess(){ [523,659,784,1047].forEach((f,i)=>beep(f,.18,.4,'sine',i*.13)); }
+function playFail(){ beep(160,.5,.5,'sawtooth'); }
+function playClick(){ beep(800,.04,.2); }
+function playChalAlert(){ [440,550,440,550,660].forEach((f,i)=>beep(f,.12,.4,'square',i*.15)); }
+function playTick(state){
+  const fm={dead:0,polar:280,cold:340,cool:400,warm:460,hot:520,vhot:600,burning:700,found:900};
+  const f=fm[state]||0; if(f) beep(f,.04,.12);
 }
 
 // ══════════════════════════════════════════════════════
-// ── CONSTANTES BLE
+// ── 9 ESTADOS DE SEÑAL
 // ══════════════════════════════════════════════════════
-const SVC   = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
-const CINFO = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
-const CCHAL = 'cba1d466-344c-4be3-ab3f-189f80dd7518';
-const CCMD  = 'd0e56b1a-7f3c-4a9b-b821-3e5c7d2f9a01';
-
-// ── ESTADO ─────────────────────────────────────────────
-let bleDevice=null, gattServer=null, charInfo=null, charChal=null, charCmd=null;
-let pollTimer=null, simTimer=null, simPhase=0;
-let rssiSmooth=-100, rssiHistory=[], txPower=-59, radarA=0;
-let simMode=false, hasRealRSSI=false;
-let tickInterval=null;
-let currentChalData=null; // challenge activo para el banner
-
-// ── SIGNAL STATES ──────────────────────────────────────
-const ST={
-  dead: {l:'SIN SEÑAL',     c:'#2c3e50',msg:'ZONA MUERTA — Sin transmisiones',pct:0},
-  cold: {l:'FRÍO',          c:'#1565c0',msg:'SEÑAL DÉBIL — A.R.G.O.S. detectado en el área',pct:20},
-  warm: {l:'TIBIO',         c:'#6a1ea0',msg:'SEÑAL ESTABLE — Fuente identificada. Avanza.',pct:45},
-  hot:  {l:'CALIENTE',      c:'#d84315',msg:'SEÑAL FUERTE — Proximidad confirmada.',pct:70},
-  vhot: {l:'MUY CALIENTE',  c:'#e53935',msg:'SEÑAL CRÍTICA — Baliza a metros.',pct:88},
-  found:{l:'BALIZA LOCALIZADA',c:'#2e7d32',msg:'ORIGEN LOCALIZADO — Protocolo de infiltración.',pct:100},
+const ST = {
+  dead:    {l:'SIN SEÑAL',        c:'#37474f', m:0,   rssi:-999},
+  polar:   {l:'POLAR',            c:'#0d47a1', m:10,  rssi:-98},
+  cold:    {l:'FRÍO',             c:'#1976d2', m:22,  rssi:-88},
+  cool:    {l:'FRESCO',           c:'#00838f', m:36,  rssi:-78},
+  warm:    {l:'TIBIO',            c:'#7b1fa2', m:50,  rssi:-70},
+  hot:     {l:'CALIENTE',         c:'#c2185b', m:64,  rssi:-62},
+  vhot:    {l:'MUY CALIENTE',     c:'#e64a19', m:78,  rssi:-55},
+  burning: {l:'ARDIENDO',         c:'#ff6f00', m:90,  rssi:-47},
+  found:   {l:'BALIZA LOCALIZADA',c:'#00c853', m:100, rssi:-40},
 };
+const STATE_ORDER = ['dead','polar','cold','cool','warm','hot','vhot','burning','found'];
+
 function rssiToState(r){
-  if(r<-90)return'dead'; if(r<-80)return'cold';
-  if(r<-70)return'warm'; if(r<-62)return'hot';
-  if(r<-55)return'vhot'; return'found';
+  if(r<-94) return'dead';   if(r<-84) return'polar';
+  if(r<-75) return'cold';   if(r<-67) return'cool';
+  if(r<-60) return'warm';   if(r<-53) return'hot';
+  if(r<-47) return'vhot';   if(r<-41) return'burning';
+  return'found';
 }
 function smooth(raw){
   rssiHistory.push(raw);
-  if(rssiHistory.length>5)rssiHistory.shift();
+  if(rssiHistory.length>5) rssiHistory.shift();
   return Math.round(rssiHistory.reduce((a,b)=>a+b)/rssiHistory.length);
 }
 function dist(rssi){
   const d=Math.pow(10,(txPower-rssi)/(10*2.5));
-  return d<1?'< 1 m':d>200?'> 200 m':d.toFixed(1)+' m';
+  return d<1?'< 1 m':d>500?'> 500 m':d.toFixed(0)+' m';
 }
 
-// ── UI UPDATE ───────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// ── ESTADO GLOBAL
+// ══════════════════════════════════════════════════════
+let rssiSmooth=-100, rssiHistory=[], txPower=-59;
+let wifiTimer=null, simTimer=null;
+let currentChalData=null;
+let compassHeading=0, compassActive=false;
+let beaconAngle=45; // ángulo estimado de la baliza (grados desde norte)
 let lastState='dead', tickCount=0;
+// BLE
+let bleDevice=null, gattServer=null;
+
+// ══════════════════════════════════════════════════════
+// ── UI UPDATE
+// ══════════════════════════════════════════════════════
 function updateUI(rssi){
-  rssiSmooth=smooth(rssi);
-  const s=rssiToState(rssiSmooth), st=ST[s];
-  document.getElementById('rssiLive').textContent=rssiSmooth+' dBm';
-  document.getElementById('rssiLive').style.color=st.c;
-  document.getElementById('distLive').textContent='≈ '+dist(rssiSmooth)+' (estimado)';
-  document.getElementById('stateVal').textContent=st.l;
-  document.getElementById('stateVal').style.color=st.c;
-  document.getElementById('stateMsg').textContent=st.msg;
-  document.getElementById('stateCard')||0;
-  const cards=document.querySelectorAll('.card');
-  cards.forEach(c=>{ if(c.id==='rssiCard'||!c.id) c.style.borderColor=st.c; });
-  document.getElementById('sigBar').style.width=st.pct+'%';
-  document.getElementById('sigBar').style.background=st.c;
-  document.getElementById('barPct').textContent=st.pct+'%';
-  document.getElementById('rlabel').textContent=st.l;
-  // ticks de proximidad
+  rssiSmooth = smooth(rssi);
+  const s = rssiToState(rssiSmooth), st = ST[s];
+  document.getElementById('rssiLive').textContent  = rssiSmooth + ' dBm';
+  document.getElementById('rssiLive').style.color  = st.c;
+  document.getElementById('distLive').textContent  = '≈ ' + dist(rssiSmooth) + ' (est.)';
+  document.getElementById('stateVal').textContent  = st.l;
+  document.getElementById('stateVal').style.color  = st.c;
+  document.getElementById('stateMsg').textContent  = stateMsg(s);
+  document.getElementById('sigBar').style.width    = st.m + '%';
+  document.getElementById('sigBar').style.background = st.c;
+  document.getElementById('barPct').textContent    = st.m + '%';
+  document.getElementById('mapLabel').textContent  = st.l;
+  document.getElementById('mapLabel').style.color  = st.c;
   tickCount++;
-  if(tickCount%3===0) playProximityTick(rssiSmooth);
-  // vibración
+  if(tickCount%3===0) playTick(s);
   if(navigator.vibrate){
     if(s==='found'&&lastState!=='found') navigator.vibrate([200,60,200]);
-    else if(s==='vhot'&&lastState!=='vhot') navigator.vibrate(120);
+    else if(s==='burning'&&lastState!=='burning') navigator.vibrate(150);
   }
-  lastState=s;
+  // Actualizar blip: cuando mejora señal, anclar ángulo al heading actual
+  if(STATE_ORDER.indexOf(s) > STATE_ORDER.indexOf(lastState)){
+    beaconAngle = compassHeading; // señal mejoró en esta dirección
+  }
+  lastState = s;
 }
 
-// ── LOG ─────────────────────────────────────────────────
+function stateMsg(s){
+  const msgs = {
+    dead:   'ZONA MUERTA — Sin transmisiones detectadas',
+    polar:  'SEÑAL MÍNIMA — A.R.G.O.S. en el área. Explora.',
+    cold:   'FRÍO — Señal débil. Avanza con precaución.',
+    cool:   'FRESCO — Señal detectada. Sigue el rumbo.',
+    warm:   'TIBIO — Fuente identificada. Ajusta dirección.',
+    hot:    'CALIENTE — Proximidad confirmada. Acelera.',
+    vhot:   'MUY CALIENTE — Baliza cerca. Máxima precaución.',
+    burning:'ARDIENDO — A metros. Protocolo de infiltración.',
+    found:  'BALIZA LOCALIZADA — Inicia infiltración ahora.',
+  };
+  return msgs[s] || '';
+}
+
 function log(msg,cls='l'){
   const t=document.getElementById('term');
   const ts=new Date().toLocaleTimeString('es',{hour12:false});
   const d=document.createElement('div');
   d.className=cls; d.textContent='['+ts+'] '+msg;
   t.appendChild(d);
-  while(t.children.length>80)t.removeChild(t.firstChild);
-  t.scrollTop=t.scrollHeight;
+  while(t.children.length>80) t.removeChild(t.firstChild);
+  t.scrollTop = t.scrollHeight;
 }
 
 // ══════════════════════════════════════════════════════
-// ── WEB BLUETOOTH
+// ── WIFI POLLING
 // ══════════════════════════════════════════════════════
-async function connectBLE(){
-  if(!checkBTAvailable()) return;
-  ensureAudio(); // AudioContext en contexto de gesto del usuario
-  stopSim(); hasRealRSSI=false;
-  log('Buscando dispositivos THLS-*...','li');
-  setBtnState('connecting');
-  try{
-    bleDevice=await navigator.bluetooth.requestDevice({
-      filters:[{namePrefix:'THLS-'}],
-      optionalServices:[SVC]
-    });
-    await finishConnect();
-  }catch(err){ handleBTError(err); }
+function getIP(){ return document.getElementById('ipInput').value.trim() || '192.168.4.1'; }
+
+function startWiFi(){
+  ensureAudio();
+  stopAll();
+  const ip = getIP();
+  const url = 'http://' + ip + '/api/status';
+  // Detectar mixed content
+  if(location.protocol==='https:'){
+    document.getElementById('noteMixed').classList.add('show');
+    log('⚠ HTTPS + HTTP = contenido mixto. Usa HTTP para servir la PWA.','lw');
+  }
+  log('WiFi: sondeando http://' + ip + '/api/status ...','li');
+  document.getElementById('hstatus').textContent = 'WiFi → '+ip;
+  document.getElementById('btnWifi').disabled = true;
+  document.getElementById('btnStop').classList.add('show');
+  wifiTimer = setInterval(() => pollWiFi(url), 1000);
+  pollWiFi(url); // inmediato
 }
 
-async function connectBLEAny(){
-  if(!checkBTAvailable()) return;
-  ensureAudio(); // AudioContext en contexto de gesto del usuario
-  stopSim(); hasRealRSSI=false;
-  log('Buscando CUALQUIER dispositivo BLE...','lw');
-  setBtnState('connecting');
+async function pollWiFi(url){
   try{
-    bleDevice=await navigator.bluetooth.requestDevice({
-      acceptAllDevices:true,
-      optionalServices:[SVC]
-    });
-    await finishConnect();
-  }catch(err){ handleBTError(err); }
-}
-
-async function finishConnect(){
-  log('Dispositivo: '+bleDevice.name,'li');
-  bleDevice.addEventListener('gattserverdisconnected',onDisconnected);
-
-  // watchAdvertisements para RSSI real
-  if(typeof bleDevice.watchAdvertisements==='function'){
-    try{
-      await bleDevice.watchAdvertisements();
-      bleDevice.addEventListener('advertisementreceived',(ev)=>{
-        if(ev.rssi!=null){ hasRealRSSI=true; updateUI(ev.rssi); }
-      });
-      setTimeout(()=>{ if(!hasRealRSSI) startRSSIPolling(); },3000);
-    }catch(e){ startRSSIPolling(); }
-  }else{ startRSSIPolling(); }
-
-  // GATT
-  log('Conectando GATT...','l');
-  gattServer=await bleDevice.gatt.connect();
-  log('GATT conectado ✓','li');
-  document.getElementById('hstatus').textContent='BLE: '+bleDevice.name;
-
-  try{
-    const svc=await gattServer.getPrimaryService(SVC);
-    charInfo=await svc.getCharacteristic(CINFO);
-    charChal=await svc.getCharacteristic(CCHAL);
-    try{ charCmd=await svc.getCharacteristic(CCMD); }catch(_){}
-
-    const v=await charInfo.readValue();
-    const info=JSON.parse(new TextDecoder().decode(v));
-    if(info.txPower) txPower=info.txPower;
-    log('INFO: '+JSON.stringify(info),'lf');
-
-    const cv=await charChal.readValue();
-    const chal=JSON.parse(new TextDecoder().decode(cv));
-
-    await charInfo.startNotifications();
-    charInfo.addEventListener('characteristicvaluechanged',(ev)=>{
-      const d=JSON.parse(new TextDecoder().decode(ev.target.value));
-      if(d.txPower) txPower=d.txPower;
-      log('NOTIFY challenge='+(d.challenge?'ON':'OFF'),'lf');
-      if(d.challenge) showChalBanner(chal);
-      else { hideChalBanner(); closeChal(); }
-    });
-    log('Notificaciones activas — presiona BOOT en el ESP32 para challenge ✓','li');
-    setBtnState('connected');
-    if(info.challenge) showChalBanner(chal);
+    const ctrl = new AbortController();
+    const tid  = setTimeout(()=>ctrl.abort(), 2500);
+    const r    = await fetch(url, {signal: ctrl.signal});
+    clearTimeout(tid);
+    const data = await r.json();
+    handleWiFiData(data);
   }catch(e){
-    log('Servicio THLS no encontrado en este dispositivo: '+e.message,'lw');
-    log('(dispositivo conectado — RSSI funcionando)','l');
-    setBtnState('connected');
+    if(e.name!=='AbortError') log('WiFi: sin respuesta ('+e.message.slice(0,40)+')','lw');
   }
 }
 
-function startRSSIPolling(){
-  if(pollTimer) return;
-  log('Modo RSSI estimado (sin flag experimental)','lw');
-  document.getElementById('noteRSSI').classList.add('show');
-  let base=-65, dir=1;
-  pollTimer=setInterval(()=>{
-    base+=dir*(Math.random()*1.5);
-    if(base>-45)dir=-1; if(base<-90)dir=1;
-    updateUI(Math.round(base+(Math.random()-0.5)*4));
-  },1000);
+function handleWiFiData(d){
+  if(d.txPower) txPower = d.txPower;
+  if(d.rssi !== undefined) updateUI(d.rssi);
+  document.getElementById('hstatus').textContent = 'WiFi: THLS-'+(d.id||'?')+' | '+d.rssi+'dBm';
+  if(d.challenge) showChalBanner({type:d.type,seed:d.seed,diff:d.diff,timer:d.timer||60});
+  else hideChalBanner();
 }
 
-function onDisconnected(){
-  log('Conexión BLE perdida','lw');
-  clearInterval(pollTimer); pollTimer=null;
-  rssiHistory=[]; updateUI(-100);
-  document.getElementById('hstatus').textContent='DESCONECTADO';
-  setBtnState('idle');
+async function sendCmd(cmd){
+  const url = 'http://' + getIP() + '/api/cmd';
+  try{
+    await fetch(url, {method:'POST', body:cmd,
+                     headers:{'Content-Type':'text/plain'},
+                     signal:AbortSignal.timeout(2000)});
+  }catch(e){ log('CMD error: '+e.message,'le'); }
 }
 
-function disconnect(){
-  clearInterval(pollTimer); pollTimer=null;
-  if(bleDevice&&bleDevice.gatt.connected) bleDevice.gatt.disconnect();
-  onDisconnected();
+function stopAll(){
+  clearInterval(wifiTimer); wifiTimer = null;
+  clearInterval(simTimer);  simTimer  = null;
+  if(bleDevice && bleDevice.gatt?.connected) bleDevice.gatt.disconnect();
+  document.getElementById('btnWifi').disabled = false;
+  document.getElementById('btnStop').classList.remove('show');
+  document.getElementById('hstatus').textContent = 'DESCONECTADO';
+  hideChalBanner();
 }
 
-function checkBTAvailable(){
-  if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
-    document.getElementById('noteIOS').classList.add('show');
-    log('iOS no soporta Web Bluetooth','le'); return false;
+// ══════════════════════════════════════════════════════
+// ── BLE STANDBY (modo secundario)
+// ══════════════════════════════════════════════════════
+const BLE_SVC  = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+const BLE_INFO = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+
+async function startBLE(){
+  ensureAudio();
+  if(!navigator.bluetooth){ log('Web Bluetooth no disponible','le'); return; }
+  if(location.protocol!=='https:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){
+    log('BLE requiere HTTPS o localhost','lw'); return;
   }
-  const secure=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
-  if(!secure){
-    document.getElementById('noteHTTPS').classList.add('show');
-    log('Necesitas HTTPS o localhost para Web Bluetooth','lw'); return false;
-  }
-  if(!navigator.bluetooth){
-    log('Web Bluetooth no disponible — usa Chrome Android','le'); return false;
-  }
-  return true;
+  try{
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:'THLS-'}], optionalServices:[BLE_SVC]
+    });
+    log('BLE standby: '+bleDevice.name,'li');
+    const gs = await bleDevice.gatt.connect();
+    const svc = await gs.getPrimaryService(BLE_SVC);
+    const ch  = await svc.getCharacteristic(BLE_INFO);
+    const v   = await ch.readValue();
+    const d   = JSON.parse(new TextDecoder().decode(v));
+    log('BLE INFO: '+JSON.stringify(d),'lf');
+    if(d.txPower) txPower = d.txPower;
+    await ch.startNotifications();
+    ch.addEventListener('characteristicvaluechanged', ev=>{
+      const dd = JSON.parse(new TextDecoder().decode(ev.target.value));
+      if(dd.challenge) showChalBanner({type:dd.type||'wire_connect',seed:dd.nonce,diff:'?',timer:60});
+      else hideChalBanner();
+    });
+    document.getElementById('hstatus').textContent = 'BLE standby: '+bleDevice.name;
+  }catch(e){ log('BLE error: '+e.message,'le'); }
 }
 
-function handleBTError(err){
-  if(err.name==='NotFoundError') log('Selector cancelado o ningún dispositivo encontrado','lw');
-  else if(err.name==='SecurityError'){ log('Error de seguridad — requiere HTTPS','le'); document.getElementById('noteHTTPS').classList.add('show'); }
-  else log('BT Error ['+err.name+']: '+err.message,'le');
-  setBtnState('idle');
-  document.getElementById('btnConnectAll').classList.add('show');
+// ══════════════════════════════════════════════════════
+// ── BRÚJULA (DeviceOrientation)
+// ══════════════════════════════════════════════════════
+async function requestCompass(){
+  ensureAudio();
+  try{
+    if(typeof DeviceOrientationEvent?.requestPermission==='function'){
+      const p = await DeviceOrientationEvent.requestPermission();
+      if(p!=='granted'){ log('Permiso brújula denegado','lw'); return; }
+    }
+    window.addEventListener('deviceorientation', handleOrientation, true);
+    compassActive = true;
+    document.getElementById('noteCompass').classList.add('show');
+    document.getElementById('btnCompass').style.background='#4a2070';
+    log('Brújula activada ✓','li');
+  }catch(e){ log('Brújula: '+e.message,'lw'); }
 }
 
-function setBtnState(s){
-  const bc=document.getElementById('btnConnect'), bd=document.getElementById('btnDisc');
-  if(s==='idle'){bc.disabled=false;bc.textContent='⬡ CONECTAR';bd.classList.remove('show');}
-  if(s==='connecting'){bc.disabled=true;bc.textContent='◌ CONECTANDO...';}
-  if(s==='connected'){bc.disabled=true;bc.textContent='✓ CONECTADO';bd.classList.add('show');}
+function handleOrientation(e){
+  let h = 0;
+  if(e.webkitCompassHeading != null) h = e.webkitCompassHeading; // iOS
+  else if(e.alpha != null) h = (360 - e.alpha) % 360;            // Android
+  compassHeading = h;
+  document.getElementById('compassDeg').textContent = Math.round(h) + '°';
 }
+
+// ══════════════════════════════════════════════════════
+// ── MAPA BRÚJULA — CANVAS
+// ══════════════════════════════════════════════════════
+const mapCanvas = document.getElementById('mapCanvas');
+const ctx       = mapCanvas.getContext('2d');
+const CX=130, CY=130, R=118;
+
+// Colores de zonas (de afuera hacia adentro)
+const ZONE_RINGS = [
+  {r:1.00, c:'#0d47a1'}, // polar
+  {r:0.86, c:'#1976d2'}, // cold
+  {r:0.72, c:'#00838f'}, // cool
+  {r:0.59, c:'#7b1fa2'}, // warm
+  {r:0.47, c:'#c2185b'}, // hot
+  {r:0.36, c:'#e64a19'}, // vhot
+  {r:0.26, c:'#ff6f00'}, // burning
+  {r:0.16, c:'#00c853'}, // found
+];
+
+function drawMap(){
+  requestAnimationFrame(drawMap);
+  ctx.clearRect(0,0,260,260);
+
+  const s  = rssiToState(rssiSmooth);
+  const sc = ST[s].c;
+  const idx = STATE_ORDER.indexOf(s);
+
+  // — Clip a círculo —
+  ctx.save();
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.clip();
+  ctx.fillStyle='#07090f'; ctx.fillRect(0,0,260,260);
+
+  // — ESPACIO MUNDO (rotado por -heading) —
+  ctx.save();
+  ctx.translate(CX,CY);
+  ctx.rotate(-compassHeading*DEG);
+
+  // Anillos de zona (todos siempre visibles)
+  ZONE_RINGS.forEach((z,i)=>{
+    ctx.strokeStyle = i < idx ? z.c + 'cc' : z.c + '33';
+    ctx.lineWidth   = i < idx ? 1.8 : 1;
+    ctx.beginPath(); ctx.arc(0,0,R*z.r,0,Math.PI*2); ctx.stroke();
+  });
+
+  // Relleno de zona activa con gradiente radial
+  if(s !== 'dead'){
+    const fr = R * (ZONE_RINGS[Math.max(0, idx-1)]?.r || 0.16);
+    const g  = ctx.createRadialGradient(0,0,0,0,0,fr);
+    g.addColorStop(0, sc+'55'); g.addColorStop(1, sc+'08');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,fr,0,Math.PI*2); ctx.fill();
+  }
+
+  // Cruz de referencia
+  ctx.strokeStyle='#1e3a5f44'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(-R,0); ctx.lineTo(R,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,-R); ctx.lineTo(0,R); ctx.stroke();
+
+  // Puntos cardinales
+  ctx.font='bold 11px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#e53935cc'; ctx.fillText('N', 0, -(R-10));
+  ctx.fillStyle='#33506688'; ctx.fillText('S', 0, R-10);
+  ctx.fillStyle='#33506688'; ctx.fillText('E', R-10, 0);
+  ctx.fillStyle='#33506688'; ctx.fillText('W', -(R-10), 0);
+
+  // BLIP DEL BEACON
+  if(s !== 'dead'){
+    const pct    = 1 - (ST[s].m/100);
+    const bDist  = Math.max(12, R * pct * 0.92);
+    const bAngle = beaconAngle * DEG;
+    const bx = Math.sin(bAngle) * bDist;
+    const by = -Math.cos(bAngle) * bDist;
+    const pulse = 0.5 + 0.5*Math.sin(Date.now()/350);
+    // Aura
+    ctx.beginPath(); ctx.arc(bx, by, 7+pulse*5, 0, Math.PI*2);
+    ctx.fillStyle = '#e53935' + Math.round(40+60*pulse).toString(16).padStart(2,'0');
+    ctx.fill();
+    // Punto central
+    ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI*2);
+    ctx.fillStyle='#e53935'; ctx.fill();
+    ctx.strokeStyle='#ff8a80'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+
+  ctx.restore(); // fin espacio mundo
+
+  // — ESPACIO PANTALLA (no rota) —
+  ctx.save();
+  ctx.translate(CX,CY);
+
+  // Flecha de dirección (apunta hacia arriba = dirección actual)
+  if(compassActive){
+    ctx.strokeStyle='#00b4d8'; ctx.lineWidth=2.5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(0,8); ctx.lineTo(0,-30); ctx.stroke();
+    // Punta de flecha
+    ctx.beginPath(); ctx.moveTo(-5,-20); ctx.lineTo(0,-30); ctx.lineTo(5,-20);
+    ctx.strokeStyle='#00b4d8'; ctx.lineWidth=2; ctx.stroke();
+    // Grado
+    ctx.font='8px Courier New'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#00b4d8';
+    ctx.fillText(Math.round(compassHeading)+'°', 0, -40);
+  } else {
+    // Flecha estática indicando "activar brújula"
+    ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=1.5; ctx.lineCap='round';
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(0,8); ctx.lineTo(0,-26); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Punto del jugador (centro)
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(0,0,5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=rssiToState(rssiSmooth)==='dead'?'#37474f':'#00b4d8';
+  ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill();
+
+  ctx.restore();
+  ctx.restore(); // fin clip
+
+  // Borde exterior del mapa
+  ctx.strokeStyle=ST[rssiToState(rssiSmooth)].c+'aa';
+  ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.stroke();
+}
+drawMap();
 
 // ══════════════════════════════════════════════════════
 // ── SIMULACIÓN
 // ══════════════════════════════════════════════════════
 function startSimulation(){
-  stopSim(); simMode=true; simPhase=0;
-  ensureAudio(); // CRÍTICO: crear AudioContext aquí, en el contexto del gesto del usuario
-  log('=== MODO SIMULACIÓN — acercándose a baliza THLS-C001 ===','li');
-  document.getElementById('hstatus').textContent='SIMULANDO';
-  document.getElementById('btnConnect').disabled=true;
-  document.getElementById('btnDisc').classList.add('show');
+  ensureAudio();
+  stopAll();
+  log('=== MODO SIMULACIÓN WiFi — baliza THLS-C001 ===','li');
+  document.getElementById('hstatus').textContent = 'SIMULANDO';
+  document.getElementById('btnStop').classList.add('show');
+  // Simular brújula girando si no está activa
+  let simHeading = 0;
+  let t = 0, chalOpened = false;
+  const chalData = {type:'wire_connect', diff:'easy', seed:'84726', timer:60};
 
-  let t=0, challengeOpened=false;
-  const chalData={type:'wire_connect',diff:'easy',seed:'84726',timer:60,slot:0};
-
-  simTimer=setInterval(()=>{
-    t+=0.05;
-    // Curva: lejos → cerca → desafío → lejos
-    const cycle=t%(Math.PI*2);
-    const base=-95+55*Math.abs(Math.sin(cycle*0.6));
-    const rssi=Math.round(Math.max(-98,Math.min(-40,base+(Math.random()-0.5)*4)));
+  simTimer = setInterval(()=>{
+    t += 0.05;
+    if(!compassActive){
+      simHeading = (simHeading + 1.5) % 360;
+      compassHeading = simHeading;
+    }
+    const cycle = t % (Math.PI*2);
+    const base  = -98 + 60 * Math.abs(Math.sin(cycle*0.5));
+    const rssi  = Math.round(Math.max(-100, Math.min(-38, base + (Math.random()-0.5)*4)));
     updateUI(rssi);
 
-    // FIX: usar rssiToState en vez de comparar número directamente
-    // rssiToState retorna 'found' cuando rssi >= -55, pero rssi > -55 nunca
-    // matcheaba el caso exacto rssi === -55
-    if(rssiToState(rssi)==='found' && !challengeOpened){
-      challengeOpened=true;
-      log('¡CHALLENGE ACTIVADO — baliza localizada!','lf');
+    const s = rssiToState(rssi);
+    if((s==='found'||s==='burning') && !chalOpened){
+      chalOpened = true;
       playChalAlert();
-      const tipos=['wire_connect','qr_scan','morse_decode'];
-      const tipo=tipos[Math.floor(Math.random()*3)];
-      chalData.type=tipo;
-      showChalBanner(chalData); // mostrar banner clickeable
+      const tipos = ['wire_connect','qr_scan','morse_decode'];
+      chalData.type = tipos[Math.floor(Math.random()*3)];
+      showChalBanner(chalData);
     }
-    if(rssi<-80&&challengeOpened){ challengeOpened=false; hideChalBanner(); }
-  },800);
-}
-
-function stopSim(){
-  if(simTimer){clearInterval(simTimer);simTimer=null;}
-  simMode=false;
-  document.getElementById('btnConnect').disabled=false;
-  document.getElementById('btnDisc').classList.remove('show');
-}
-
-function openCurrentChallenge(){
-  ensureAudio();
-  if(currentChalData) openChallenge(currentChalData);
-}
-
-function showChalBanner(chal){
-  currentChalData=chal;
-  const typeLabels={wire_connect:'CONECTAR CABLES',qr_scan:'DESCIFRAR CÓDIGO',morse_decode:'CÓDIGO MORSE'};
-  document.getElementById('chalBannerSub').textContent=
-    (typeLabels[chal.type]||chal.type.toUpperCase())+' · Toca para iniciar';
-  document.getElementById('chalBanner').style.display='block';
-  if(navigator.vibrate) navigator.vibrate([100,60,100,60,300]);
-}
-
-function hideChalBanner(){
-  document.getElementById('chalBanner').style.display='none';
-  currentChalData=null;
+    if(rssi < -80 && chalOpened){ chalOpened=false; hideChalBanner(); }
+  }, 700);
 }
 
 // ══════════════════════════════════════════════════════
@@ -594,38 +686,47 @@ function hideChalBanner(){
 // ══════════════════════════════════════════════════════
 let chalTimerInterval=null, chalSeconds=60;
 
+function showChalBanner(chal){
+  currentChalData = chal;
+  const labels = {wire_connect:'CONECTAR CABLES',qr_scan:'DESCIFRAR CÓDIGO',morse_decode:'CÓDIGO MORSE'};
+  document.getElementById('chalBannerSub').textContent =
+    (labels[chal.type]||chal.type.toUpperCase())+' · Toca para iniciar';
+  document.getElementById('chalBanner').style.display = 'block';
+  if(navigator.vibrate) navigator.vibrate([100,60,100,60,300]);
+}
+function hideChalBanner(){
+  document.getElementById('chalBanner').style.display = 'none';
+  currentChalData = null;
+}
+function openCurrentChallenge(){
+  ensureAudio();
+  if(currentChalData) openChallenge(currentChalData);
+}
+
 function openChallenge(chal){
   if(document.getElementById('chalOverlay').classList.contains('show')) return;
-  ensureAudio();
-  const typeLabels={wire_connect:'CONECTAR CABLES',qr_scan:'DESCIFRAR CÓDIGO',morse_decode:'CÓDIGO MORSE'};
-  document.getElementById('chalSub').textContent=
-    (typeLabels[chal.type]||chal.type.toUpperCase())+'  ·  DIFICULTAD: '+(chal.diff||'?').toUpperCase()+
-    '  ·  SEED: '+(chal.seed||'?');
-  chalSeconds=chal.timer||60;
-  document.getElementById('chalTimer').textContent=chalSeconds;
+  const labels = {wire_connect:'CONECTAR CABLES',qr_scan:'DESCIFRAR CÓDIGO',morse_decode:'CÓDIGO MORSE'};
+  document.getElementById('chalSub').textContent =
+    (labels[chal.type]||chal.type.toUpperCase())+'  ·  '+
+    (chal.diff||'?').toUpperCase()+'  ·  SEED: '+(chal.seed||'?');
+  chalSeconds = chal.timer||60;
+  document.getElementById('chalTimer').textContent = chalSeconds;
   document.getElementById('chalTimer').classList.remove('urgent');
-  document.getElementById('chalResult').style.display='none';
+  document.getElementById('chalResult').style.display = 'none';
+  ['gameWire','gameCode','gameMorse'].forEach(id=>document.getElementById(id).style.display='none');
 
-  // Mostrar el minijuego correcto
-  document.getElementById('gameWire').style.display='none';
-  document.getElementById('gameCode').style.display='none';
-  document.getElementById('gameMorse').style.display='none';
-
-  if(chal.type==='wire_connect') initWire(chal.seed);
-  else if(chal.type==='qr_scan') initCode(chal.seed);
+  if(chal.type==='wire_connect')   initWire(chal.seed);
+  else if(chal.type==='qr_scan')   initCode(chal.seed);
   else if(chal.type==='morse_decode') initMorse(chal.seed);
 
   document.getElementById('chalOverlay').classList.add('show');
   if(navigator.vibrate) navigator.vibrate([100,60,100,60,300]);
 
-  chalTimerInterval=setInterval(()=>{
+  chalTimerInterval = setInterval(()=>{
     chalSeconds--;
-    document.getElementById('chalTimer').textContent=chalSeconds;
+    document.getElementById('chalTimer').textContent = chalSeconds;
     if(chalSeconds<=10) document.getElementById('chalTimer').classList.add('urgent');
-    if(chalSeconds<=0){
-      clearInterval(chalTimerInterval);
-      showChalResult(false,'TIEMPO AGOTADO — Misión fallida');
-    }
+    if(chalSeconds<=0){ clearInterval(chalTimerInterval); showChalResult(false,'TIEMPO AGOTADO'); }
   },1000);
 }
 
@@ -635,98 +736,82 @@ function closeChal(){
   stopWire(); stopCode(); stopMorse();
 }
 
-function showChalResult(success, msg){
+function showChalResult(ok, msg){
   clearInterval(chalTimerInterval);
-  const r=document.getElementById('chalResult');
-  r.style.display='block';
-  r.style.color=success?'#2e7d32':'#e53935';
-  r.textContent=(success?'✓ ':' ✗ ')+msg;
-  if(success){ playSuccess(); if(navigator.vibrate) navigator.vibrate([200,100,200,100,500]); }
-  else{ playFail(); if(navigator.vibrate) navigator.vibrate([500,100,500]); }
-  log((success?'✓ MISIÓN COMPLETADA':' ✗ MISIÓN FALLIDA')+' — '+msg, success?'li':'le');
-  if(success) setTimeout(closeChal,2500);
+  const r = document.getElementById('chalResult');
+  r.style.display='block'; r.style.color=ok?'#00c853':'#e53935';
+  r.textContent = (ok?'✓ ':' ✗ ')+msg;
+  if(ok){ playSuccess(); if(navigator.vibrate) navigator.vibrate([200,100,200,100,500]); }
+  else  { playFail();    if(navigator.vibrate) navigator.vibrate([500,100,500]); }
+  log((ok?'✓ MISIÓN COMPLETADA':' ✗ FALLIDA')+' — '+msg, ok?'li':'le');
+  if(ok) setTimeout(closeChal, 2500);
 }
 
 // ══════════════════════════════════════════════════════
 // ── MINIJUEGO: WIRE CONNECT
 // ══════════════════════════════════════════════════════
 const WIRE_COLORS=[
-  {name:'ROJO',   bg:'#c0392b',fg:'#fff'},
-  {name:'AZUL',   bg:'#1565c0',fg:'#fff'},
-  {name:'VERDE',  bg:'#1b5e20',fg:'#fff'},
+  {name:'ROJO',    bg:'#c0392b',fg:'#fff'},
+  {name:'AZUL',    bg:'#1565c0',fg:'#fff'},
+  {name:'VERDE',   bg:'#1b5e20',fg:'#fff'},
   {name:'AMARILLO',bg:'#f39c12',fg:'#07090f'},
 ];
-let wireSelected=null, wireConnections={}, wireOrder=[];
+let wireSelected=null, wireConnections={};
 
 function initWire(seed){
   document.getElementById('gameWire').style.display='block';
   wireSelected=null; wireConnections={};
-  // Seed determina el orden del lado derecho
   const rng=seededRng(parseInt(seed)||12345);
-  wireOrder=[0,1,2,3].sort(()=>rng()-0.5);
-
+  const order=[0,1,2,3].sort(()=>rng()-0.5);
   const left=document.getElementById('wireLeft');
   const right=document.getElementById('wireRight');
   left.innerHTML=''; right.innerHTML='';
-
   WIRE_COLORS.forEach((c,i)=>{
     const b=document.createElement('div');
-    b.className='wire-btn'; b.dataset.idx=i; b.dataset.side='left';
+    b.className='wire-btn'; b.dataset.idx=i;
     b.style.background=c.bg; b.style.color=c.fg; b.style.borderColor=c.bg;
-    b.textContent='● '+c.name;
-    b.onclick=()=>selectWire(i,'left');
+    b.textContent='● '+c.name; b.onclick=()=>selectWire(i,'left');
     left.appendChild(b);
   });
-  wireOrder.forEach(i=>{
+  order.forEach(i=>{
     const c=WIRE_COLORS[i];
     const b=document.createElement('div');
-    b.className='wire-btn'; b.dataset.idx=i; b.dataset.side='right';
+    b.className='wire-btn'; b.dataset.idx=i;
     b.style.background=c.bg; b.style.color=c.fg; b.style.borderColor=c.bg;
-    b.textContent='○ '+c.name;
-    b.onclick=()=>selectWire(i,'right');
+    b.textContent='○ '+c.name; b.onclick=()=>selectWire(i,'right');
     right.appendChild(b);
   });
   updateWireStatus();
 }
-
 function selectWire(idx,side){
-  if(wireConnections[idx]!==undefined) return; // ya conectado
+  if(wireConnections[idx]!==undefined) return;
   playClick();
   if(side==='left'){
     wireSelected=idx;
-    document.querySelectorAll('#wireLeft .wire-btn').forEach(b=>{
-      b.classList.toggle('selected',parseInt(b.dataset.idx)===idx);
-    });
-  } else {
-    // lado derecho seleccionado: conectar con el seleccionado en la izquierda
-    if(wireSelected===null){ log('Primero selecciona un cable de la izquierda','lw'); return; }
+    document.querySelectorAll('#wireLeft .wire-btn').forEach(b=>
+      b.classList.toggle('selected',parseInt(b.dataset.idx)===idx));
+  }else{
+    if(wireSelected===null){ log('Selecciona primero un cable izquierdo','lw'); return; }
     if(wireSelected===idx){
-      wireConnections[idx]=idx;
-      markConnected(idx);
-      beep(600,0.1,0.3);
-    } else {
-      // wrong connection
-      beep(200,0.2,0.4,'sawtooth');
-      document.querySelectorAll('#wireRight .wire-btn').forEach(b=>{
-        if(parseInt(b.dataset.idx)===idx) b.classList.add('wrong');
+      wireConnections[idx]=true;
+      document.querySelectorAll('.wire-btn').forEach(b=>{
+        if(parseInt(b.dataset.idx)===idx) b.classList.add('connected');
       });
-      setTimeout(()=>document.querySelectorAll('.wire-btn').forEach(b=>b.classList.remove('wrong')),400);
+      beep(600,.1,.3);
+    }else{
+      beep(200,.2,.4,'sawtooth');
+      document.querySelectorAll('#wireRight .wire-btn').forEach(b=>{
+        if(parseInt(b.dataset.idx)===idx){ b.classList.add('wrong'); setTimeout(()=>b.classList.remove('wrong'),400); }
+      });
     }
     wireSelected=null;
     document.querySelectorAll('#wireLeft .wire-btn').forEach(b=>b.classList.remove('selected'));
     updateWireStatus();
-    if(Object.keys(wireConnections).length===4) showChalResult(true,'Circuito establecido');
+    if(Object.keys(wireConnections).length===4) showChalResult(true,'Circuito establecido ✓');
   }
 }
-
-function markConnected(idx){
-  document.querySelectorAll('.wire-btn').forEach(b=>{
-    if(parseInt(b.dataset.idx)===idx) b.classList.add('connected');
-  });
-}
 function updateWireStatus(){
-  const n=Object.keys(wireConnections).length;
-  document.getElementById('wireStatus').textContent=n+' / 4 conexiones';
+  document.getElementById('wireStatus').textContent=Object.keys(wireConnections).length+'/4 conectados';
 }
 function stopWire(){ wireSelected=null; wireConnections={}; }
 
@@ -734,17 +819,12 @@ function stopWire(){ wireSelected=null; wireConnections={}; }
 // ── MINIJUEGO: CODE CRACK
 // ══════════════════════════════════════════════════════
 let codeTarget='', codeInput='';
-
 function initCode(seed){
   document.getElementById('gameCode').style.display='block';
-  // Código de 4 dígitos derivado del seed
-  const s=String(seed).replace(/\D/g,'').padEnd(8,'0');
-  codeTarget=s.slice(0,4);
+  codeTarget=String(seed).replace(/\D/g,'').padEnd(8,'0').slice(0,4);
   codeInput='';
-  document.getElementById('codeHint').textContent=
-    'Frecuencia interceptada — introduce el código de acceso';
+  document.getElementById('codeHint').textContent='Interceptando frecuencia...';
   updateCodeDisplay();
-
   const pad=document.getElementById('numpad');
   pad.innerHTML='';
   [1,2,3,4,5,6,7,8,9,'⌫',0,'✓'].forEach(v=>{
@@ -757,7 +837,6 @@ function initCode(seed){
     pad.appendChild(b);
   });
 }
-
 function updateCodeDisplay(){
   for(let i=0;i<4;i++){
     const d=document.getElementById('d'+i);
@@ -765,20 +844,16 @@ function updateCodeDisplay(){
     d.className='code-digit'+(i===codeInput.length?' active':'');
   }
 }
-
 function submitCode(){
-  if(codeInput.length<4){ beep(300,0.1,0.3); return; }
+  if(codeInput.length<4){ beep(300,.1,.3); return; }
   if(codeInput===codeTarget){
     for(let i=0;i<4;i++) document.getElementById('d'+i).className='code-digit ok';
-    showChalResult(true,'Acceso concedido — código correcto');
-  } else {
+    showChalResult(true,'Acceso concedido');
+  }else{
     for(let i=0;i<4;i++) document.getElementById('d'+i).className='code-digit err';
-    beep(180,0.3,0.5,'sawtooth');
-    document.getElementById('codeHint').textContent='INCORRECTO — inténtalo de nuevo';
-    setTimeout(()=>{
-      codeInput=''; updateCodeDisplay();
-      document.getElementById('codeHint').textContent='Frecuencia interceptada — introduce el código de acceso';
-    },700);
+    beep(160,.3,.5,'sawtooth');
+    document.getElementById('codeHint').textContent='INCORRECTO — intenta de nuevo';
+    setTimeout(()=>{ codeInput=''; updateCodeDisplay(); document.getElementById('codeHint').textContent='Interceptando frecuencia...'; },700);
   }
 }
 function stopCode(){ codeInput=''; codeTarget=''; }
@@ -786,148 +861,80 @@ function stopCode(){ codeInput=''; codeTarget=''; }
 // ══════════════════════════════════════════════════════
 // ── MINIJUEGO: MORSE DECODE
 // ══════════════════════════════════════════════════════
-const MORSE_MAP={
-  A:'.-',B:'-...',C:'-.-.',D:'-..', E:'.',F:'..-.',G:'--.',H:'....',
+const MORSE_MAP={A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',
   I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',
-  Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',
-  Y:'-.--',Z:'--..'
-};
-const MORSE_INV=Object.fromEntries(Object.entries(MORSE_MAP).map(([k,v])=>[v,k]));
+  Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..'};
 let morseWord='', morsePlayTimer=null;
 
 function initMorse(seed){
   document.getElementById('gameMorse').style.display='block';
   document.getElementById('morseInput').value='';
-  // Seed puede ser morse directo ("... --- ...") o derivamos una palabra
-  let word='';
-  const seedStr=String(seed);
-  if(/^[A-Z]{2,6}$/i.test(seedStr.trim())){
-    word=seedStr.trim().toUpperCase();
-  } else {
-    // Derivar palabra de 3 letras del seed numérico
-    const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const n=parseInt(seedStr.replace(/\D/g,''))||54321;
-    word=letters[n%26]+letters[Math.floor(n/26)%26]+letters[Math.floor(n/676)%26];
-  }
-  morseWord=word;
-  // Mostrar morse en pantalla
-  const morseStr=word.split('').map(c=>MORSE_MAP[c]||'?').join('  ');
-  document.getElementById('morseSymbols').textContent=morseStr;
-  // Tabla de ayuda (las letras del word)
-  const hint=document.getElementById('morseHint');
-  hint.innerHTML='<strong style="color:var(--txt);display:block;margin-bottom:4px">REFERENCIA:</strong>'+
+  const s=String(seed).trim().toUpperCase();
+  const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  morseWord=/^[A-Z]{2,8}$/.test(s)?s:
+    letters[parseInt(s.replace(/\D/g,''))||0]%26+
+    letters[Math.floor((parseInt(s)||5432)/26)%26]+
+    letters[Math.floor((parseInt(s)||5432)/676)%26];
+  if(!/^[A-Z]+$/.test(morseWord)) morseWord='SOS';
+  document.getElementById('morseSymbols').textContent=
+    morseWord.split('').map(c=>MORSE_MAP[c]||'?').join('   ');
+  document.getElementById('morseHint').innerHTML=
+    '<strong style="color:var(--txt);display:block;margin-bottom:3px">CLAVE MORSE:</strong>'+
     Object.entries(MORSE_MAP).map(([k,v])=>
-      `<span style="color:${word.includes(k)?'#f1c40f':'inherit'}">${k}: ${v}  </span>`
+      `<span style="color:${morseWord.includes(k)?'#f1c40f':'#334'}">${k}:${v} </span>`
     ).join('');
-
-  log('Morse interceptado para "'+word+'" — usa ▶ REPRODUCIR','lf');
+  log('Morse: "'+morseWord+'" — presiona ▶ para escuchar','lf');
 }
-
 function playMorse(){
   if(morsePlayTimer) return;
-  const letters=morseWord.split('');
-  let delay=0;
-  const DOT=120, DASH=360, SYM_GAP=100, LET_GAP=300;
-  letters.forEach((letter,li)=>{
-    const code=MORSE_MAP[letter]||'';
-    code.split('').forEach((sym,si)=>{
+  let delay=0; const DOT=120,DASH=360,SGAP=100,LGAP=350;
+  morseWord.split('').forEach(letter=>{
+    (MORSE_MAP[letter]||'').split('').forEach(sym=>{
       const dur=sym==='.'?DOT:DASH;
-      const start=delay;
+      const t=delay;
       morsePlayTimer=setTimeout(()=>{
         document.getElementById('morseLight').classList.add('on');
-        beep(660,dur/1000,0.5,'sine');
+        beep(660,dur/1000,.5);
         setTimeout(()=>document.getElementById('morseLight').classList.remove('on'),dur);
-      },start);
-      delay+=dur+SYM_GAP;
+      },t);
+      delay+=dur+SGAP;
     });
-    delay+=LET_GAP;
+    delay+=LGAP;
   });
-  setTimeout(()=>{ morsePlayTimer=null; },delay+200);
+  setTimeout(()=>morsePlayTimer=null, delay+200);
 }
-
 function submitMorse(){
   const ans=document.getElementById('morseInput').value.trim().toUpperCase();
-  if(!ans){ beep(300,0.1,0.3); return; }
-  if(ans===morseWord){
-    showChalResult(true,'Código descifrado: "'+morseWord+'"');
-  } else {
-    beep(180,0.3,0.5,'sawtooth');
+  if(!ans){ beep(300,.1,.3); return; }
+  if(ans===morseWord) showChalResult(true,'Código descifrado: "'+morseWord+'"');
+  else{
+    beep(160,.3,.5,'sawtooth');
     document.getElementById('morseInput').value='';
     document.getElementById('morseInput').placeholder='incorrecto, intenta de nuevo';
-    log('Respuesta incorrecta: "'+ans+'" ≠ "'+morseWord+'"','lw');
+    log('Incorrecto: "'+ans+'" ≠ "'+morseWord+'"','lw');
   }
 }
-function stopMorse(){
-  if(morsePlayTimer){ clearTimeout(morsePlayTimer); morsePlayTimer=null; }
-  morseWord='';
-}
+function stopMorse(){ if(morsePlayTimer){clearTimeout(morsePlayTimer);morsePlayTimer=null;} morseWord=''; }
 
 // ══════════════════════════════════════════════════════
-// ── UTILIDADES
+// ── UTILIDAD: RNG DETERMINISTA
 // ══════════════════════════════════════════════════════
 function seededRng(seed){
-  let s=seed;
-  return function(){ s=(s^(s<<13))>>>0;s=(s^(s>>7))>>>0;s=(s^(s<<17))>>>0; return s/0xFFFFFFFF; };
+  let s=seed>>>0;
+  return ()=>{ s^=s<<13; s^=s>>7; s^=s<<17; return (s>>>0)/0xFFFFFFFF; };
 }
 
-// ── RADAR CANVAS ────────────────────────────────────────
-const cv=document.getElementById('rc'),cx2=cv.getContext('2d');
-const CR=98,CX=100,CY=100;
-const RING_C={dead:'#0d1520',cold:'#0d1e3a',warm:'#1a0d3a',hot:'#3a0d0d',vhot:'#4a0a0a',found:'#0a2a14'};
-function drawRadar(){
-  requestAnimationFrame(drawRadar);
-  cx2.clearRect(0,0,200,200);
-  const s=rssiToState(rssiSmooth),rc=RING_C[s]||'#0d1520',sc=ST[s]?.c||'#00b4d8';
-  cx2.fillStyle='#07090f';
-  cx2.beginPath();cx2.arc(CX,CY,CR,0,Math.PI*2);cx2.fill();
-  [0.3,0.55,0.78,1].forEach(r=>{
-    cx2.strokeStyle=rc;cx2.lineWidth=1;
-    cx2.beginPath();cx2.arc(CX,CY,CR*r,0,Math.PI*2);cx2.stroke();
-  });
-  cx2.strokeStyle='#0d1a2a';cx2.lineWidth=1;
-  cx2.beginPath();cx2.moveTo(CX-CR,CY);cx2.lineTo(CX+CR,CY);cx2.stroke();
-  cx2.beginPath();cx2.moveTo(CX,CY-CR);cx2.lineTo(CX,CY+CR);cx2.stroke();
-  if(s!=='dead'){
-    const speed=s==='found'?.14:s==='vhot'?.09:s==='hot'?.06:s==='warm'?.04:.025;
-    radarA=(radarA+speed)%(Math.PI*2);
-    cx2.save();cx2.translate(CX,CY);cx2.rotate(radarA);
-    cx2.beginPath();cx2.moveTo(0,0);cx2.arc(0,0,CR,-0.3,0.3);cx2.closePath();
-    const g=cx2.createLinearGradient(0,0,CR,0);
-    g.addColorStop(0,sc+'dd');g.addColorStop(1,sc+'00');
-    cx2.fillStyle=g;cx2.fill();cx2.restore();
-  }
-  if(s==='hot'||s==='vhot'||s==='found'){
-    const pr=s==='found'?7:s==='vhot'?16:28;
-    const pulse=0.5+0.5*Math.sin(Date.now()/180);
-    const alpha=Math.round(80+120*pulse).toString(16).padStart(2,'0');
-    cx2.fillStyle=sc+alpha;
-    cx2.beginPath();cx2.arc(CX,CY,pr,0,Math.PI*2);cx2.fill();
-  }
-  cx2.fillStyle=sc;cx2.beginPath();cx2.arc(CX,CY,3,0,Math.PI*2);cx2.fill();
-}
-drawRadar();
-
-// ── SERVICE WORKER ──────────────────────────────────────
+// ── SERVICE WORKER ─────────────────────────────────────
 if('serviceWorker' in navigator)
-  navigator.serviceWorker.register('./sw.js')
-    .then(()=>log('PWA: Service Worker ✓','li'))
-    .catch(e=>log('SW: '+e.message,'le'));
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
-// ── INIT ───────────────────────────────────────────────
-log('THLS Scanner v0.4 iniciado — sonido + 3 minijuegos','li');
-const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
-const isSecure=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
-if(isIOS){
-  document.getElementById('noteIOS').classList.add('show');
-  log('iOS detectado — Web BT no disponible. Usa SIMULAR.','le');
-} else if(!isSecure){
-  document.getElementById('noteHTTPS').classList.add('show');
-  log('HTTP detectado — BT requiere HTTPS o localhost','lw');
-} else if(!navigator.bluetooth){
-  log('Web Bluetooth no disponible — usa Chrome Android','lw');
-} else {
-  log('Web Bluetooth ✓ — ESP32 encendido? Nombre empieza con THLS-?','li');
-}
+// ── INIT ──────────────────────────────────────────────
+log('THLS Scanner v1.0 — WiFi + Brújula + 9 estados','li');
+if(/iPad|iPhone|iPod/.test(navigator.userAgent)) document.getElementById('noteIOS').classList.add('show');
+log('1. Conecta WiFi a "THLS-C001" (pass: thls2024)','l');
+log('2. Pulsa ⬡ WIFI CONECTAR','l');
+log('3. 🧭 BRÚJULA para activar orientación','l');
+log('4. ▷ SIMULAR para probar sin ESP32','l');
 </script>
 </body>
 </html>
