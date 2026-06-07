@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THLS — Test Señal</title>
+<style>
+  body { margin:0; font-family:monospace; background:#07090f; color:#fff;
+         display:flex; flex-direction:column; align-items:center;
+         justify-content:center; min-height:100vh; gap:16px; }
+  #circle { width:200px; height:200px; border-radius:50%; display:flex;
+            flex-direction:column; align-items:center; justify-content:center;
+            border:4px solid #333; transition:background .4s,border-color .4s; }
+  #rssi   { font-size:48px; font-weight:bold; }
+  #dist   { font-size:14px; opacity:.7; margin-top:4px; }
+  #state  { font-size:22px; font-weight:bold; letter-spacing:2px; }
+  #status { font-size:12px; color:#555; }
+  input   { background:#111; border:1px solid #333; color:#fff; padding:8px 12px;
+            border-radius:6px; font-family:monospace; font-size:14px; width:180px;
+            text-align:center; }
+  button  { background:#00b4d8; color:#000; border:none; border-radius:6px;
+            padding:10px 20px; font-family:monospace; font-weight:bold;
+            font-size:14px; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div id="circle">
+  <div id="rssi">—</div>
+  <div id="dist">sin datos</div>
+</div>
+
+<div id="state">SIN CONEXIÓN</div>
+<div id="status">Ingresa la IP del ESP32 y presiona START</div>
+
+<input id="ip" value="192.168.4.1" placeholder="192.168.4.1">
+<button onclick="toggle()">▶ START</button>
+
+<script>
+const COLORS = [
+  { min:-999, max:-94, bg:'#1a1a2e', label:'SIN SEÑAL'     },
+  { min:-94,  max:-84, bg:'#0d47a1', label:'POLAR'         },
+  { min:-84,  max:-75, bg:'#1976d2', label:'FRÍO'          },
+  { min:-75,  max:-67, bg:'#00838f', label:'FRESCO'        },
+  { min:-67,  max:-60, bg:'#7b1fa2', label:'TIBIO'         },
+  { min:-60,  max:-53, bg:'#c2185b', label:'CALIENTE'      },
+  { min:-53,  max:-47, bg:'#e64a19', label:'MUY CALIENTE'  },
+  { min:-47,  max:-41, bg:'#ff6f00', label:'ARDIENDO'      },
+  { min:-41,  max: 0,  bg:'#00c853', label:'BALIZA LOCALIZADA' },
+];
+
+let timer = null;
+
+function getState(r) {
+  return COLORS.find(c => r >= c.min && r < c.max) || COLORS[0];
+}
+function getDist(r, txp = -59) {
+  const d = Math.pow(10, (txp - r) / 25);
+  return d < 1 ? '< 1 m' : d > 500 ? '> 500 m' : d.toFixed(0) + ' m';
+}
+
+async function poll() {
+  const ip = document.getElementById('ip').value.trim();
+  try {
+    const r = await fetch('http://' + ip + '/api/status',
+                          { signal: AbortSignal.timeout(2000) });
+    const d = await r.json();
+    const rssi = d.rssi ?? -100;
+    const s = getState(rssi);
+    document.getElementById('rssi').textContent  = rssi + ' dBm';
+    document.getElementById('dist').textContent  = '≈ ' + getDist(rssi, d.txPower ?? -59);
+    document.getElementById('state').textContent = s.label;
+    document.getElementById('circle').style.background   = s.bg + '55';
+    document.getElementById('circle').style.borderColor  = s.bg;
+    document.getElementById('status').textContent = 'OK · ' + new Date().toLocaleTimeString();
+    if (d.challenge) document.getElementById('status').textContent += ' · ⚠ CHALLENGE ACTIVO';
+  } catch(e) {
+    document.getElementById('rssi').textContent  = '✗';
+    document.getElementById('dist').textContent  = e.name === 'TimeoutError' ? 'timeout' : e.message.slice(0,30);
+    document.getElementById('state').textContent = 'SIN RESPUESTA';
+    document.getElementById('circle').style.background  = '#1a0000aa';
+    document.getElementById('circle').style.borderColor = '#c00';
+    document.getElementById('status').textContent = 'Error: ¿ESP32 encendido? ¿WiFi THLS-C001 conectado?';
+  }
+}
+
+function toggle() {
+  const btn = document.querySelector('button');
+  if (timer) {
+    clearInterval(timer); timer = null;
+    btn.textContent = '▶ START'; btn.style.background = '#00b4d8';
+  } else {
+    btn.textContent = '■ STOP'; btn.style.background = '#e53935';
+    poll();
+    timer = setInterval(poll, 1000);
+  }
+}
+</script>
+</body>
+</html>
