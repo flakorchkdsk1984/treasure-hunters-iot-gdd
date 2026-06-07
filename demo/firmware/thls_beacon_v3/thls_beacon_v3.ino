@@ -1,20 +1,25 @@
 /**
  * TREASURE HUNTERS IoT: THE LAST SIGNAL
- * ESP32 — Firmware Rev 3  (v3.0.0)
+ * ESP32 — Firmware Rev 3  (v3.1.0)
  *
  * TECNOLOGÍA PRINCIPAL: WiFi AP + HTTP REST API
- * STANDBY:             BLE advertising (mismo UUID que Rev 2)
+ * STANDBY:             BLE advertising
+ * DEBUG LED:           Códigos de blink no-bloqueantes en GPIO2
+ *
+ * CÓDIGOS DE BLINK (LED GPIO2):
+ *   BOOT         ·−·−·−   3 destellos rápidos al arrancar
+ *   WIFI_READY   −−       2 pulsos largos = AP listo
+ *   CLIENT_IN    ·−·      corto-largo-corto = cliente conectado
+ *   CLIENT_OUT   −·−      largo-corto-largo = cliente desconectó
+ *   CHALLENGE_ON ····     4 rápidos = challenge activado
+ *   IDLE         −        1 pulso largo cada 3 s = reposo normal
+ *   HTTP_OK      ·        1 destello muy corto = petición atendida
+ *   ERROR        SOS      ···−−−···  = error crítico (loop)
  *
  * Endpoints:
  *   GET  /api/status   → JSON con rssi, challenge, etc.
- *   POST /api/cmd      → body "CHALLENGE:1", "SLOT:2", "RESET", etc.
- *   GET  /             → página de diagnóstico
- *
- * Como usar:
- *   1. Sube el sketch al ESP32
- *   2. Conecta tu teléfono al WiFi "THLS-C001" (pass: thls2024)
- *   3. La PWA sondea http://192.168.4.1/api/status cada 1 segundo
- *   4. Botón BOOT (GPIO0) = toggle CHALLENGE
+ *   POST /api/cmd      → body "CHALLENGE:1", "SLOT:2", "RESET"
+ *   GET  /             → página de diagnóstico PWA
  */
 
 #include <WiFi.h>
@@ -29,7 +34,7 @@
 #include <Preferences.h>
 
 // ── VERSIÓN ────────────────────────────────────────────
-#define FW_VERSION    "3.0.0"
+#define FW_VERSION    "3.1.0"
 #define FW_REV        3
 
 // ── WIFI CONFIG ────────────────────────────────────────
@@ -50,13 +55,67 @@ const char* CHALLENGE_DIFFS[] = { "easy",         "medium",  "hard"         };
 const int   CHALLENGE_COUNT   = 3;
 
 // ── PINES ─────────────────────────────────────────────
-#define LED_PIN     2
-#define BUTTON_PIN  0
-#define BAT_PIN     34
+#define LED_PIN       2
+#define BUTTON_PIN    0
+#define BAT_PIN       34
 #define WDT_TIMEOUT_S 60
 
-// ── UUIDs BLE (standby, compatibles con Rev 2) ─────────
+// ── UUIDs BLE ──────────────────────────────────────────
 #define BLE_SVC_UUID  "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+
+// ═══════════════════════════════════════════════════════
+//  SISTEMA DE BLINK NO-BLOQUEANTE
+// ═══════════════════════════════════════════════════════
+// Duraciones base (ms)
+#define DOT   120   // pulso corto  ·
+#define DASH  400   // pulso largo  −
+#define GAP   120   // pausa entre pulsos
+#define PAUSE 600   // pausa entre grupos
+
+// Patrones: {ON, OFF, ON, OFF, ...}, terminado en 0
+//   ON  = tiempo encendido
+//   OFF = tiempo apagado (negativo = pausa larga final)
+const int16_t PAT_BOOT[]         = { DOT,GAP, DOT,GAP, DOT,-(PAUSE*2), 0 };
+const int16_t PAT_WIFI_READY[]   = { DASH,GAP, DASH,-(PAUSE*3), 0 };
+const int16_t PAT_CLIENT_IN[]    = { DOT,GAP, DASH,GAP, DOT,-(PAUSE*2), 0 };
+const int16_t PAT_CLIENT_OUT[]   = { DASH,GAP, DOT,GAP, DASH,-(PAUSE*2), 0 };
+const int16_t PAT_CHALLENGE_ON[] = { DOT,GAP, DOT,GAP, DOT,GAP, DOT,-(PAUSE*2), 0 };
+const int16_t PAT_IDLE[]         = { DASH,-(3000), 0 };
+const int16_t PAT_HTTP_OK[]      = { 40,60, 0 };
+const int16_t PAT_ERROR[]        = {                          // SOS
+  DOT,GAP, DOT,GAP, DOT, PAUSE,
+  DASH,GAP, DASH,GAP, DASH, PAUSE,
+  DOT,GAP, DOT,GAP, DOT,-(PAUSE*3), 0 };
+
+struct LedBlinker {
+  const int16_t* pattern = nullptr;
+  const int16_t* next    = nullptr;   // patrón a reproducir después
+  int  step   = 0;
+  bool on     = false;
+  unsigned long t = 0;
+
+  void play(const int16_t* pat, const int16_t* after = nullptr) {
+    pattern = pat; next = after; step = 0; on = false; t = millis();
+  }
+
+  void update() {
+    if (!pattern) return;
+    if (millis() - t < (unsigned long)abs(pattern[step])) return;
+    t = millis();
+    on = !on;
+    digitalWrite(LED_PIN, on ? HIGH : LOW);
+    step++;
+    if (pattern[step] == 0) {
+      pattern = next;  // encadena siguiente o nullptr = fin
+      next    = nullptr;
+      step    = 0;
+      on      = false;
+      digitalWrite(LED_PIN, LOW);
+    }
+  }
+
+  bool idle() { return pattern == nullptr; }
+} led;
 
 // ── ESTADO ────────────────────────────────────────────
 bool     challengeActive = false;
@@ -64,6 +123,7 @@ int      challengeSlot   = 0;
 uint32_t nonce           = 0xA001;
 float    batVoltage      = 0.0f;
 unsigned long lastBtnMs  = 0;
+int      lastClients     = 0;
 Preferences prefs;
 WebServer   server(SERVER_PORT);
 
@@ -105,6 +165,7 @@ void addCORS() {
 void handleStatus() {
   addCORS();
   server.send(200, "application/json", makeStatusJson());
+  if (led.idle()) led.play(PAT_HTTP_OK);   // · destello rápido = petición OK
   esp_task_wdt_reset();
 }
 
@@ -288,6 +349,9 @@ void setup() {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   digitalWrite(LED_PIN, LOW);
 
+  // Debug: BOOT
+  led.play(PAT_BOOT);
+
   // NVS
   prefs.begin("thls", false);
   nonce          = prefs.getUInt("nonce",  0xA001);
@@ -305,6 +369,7 @@ void setup() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP(WIFI_SSID, WIFI_PASS);
   Serial.printf("[WiFi] AP: \"%s\" | IP: %s\n", WIFI_SSID, WiFi.softAPIP().toString().c_str());
+  led.play(PAT_WIFI_READY);   // −− = AP listo
 
   // HTTP server
   server.on("/",            HTTP_GET,  handleRoot);
@@ -324,6 +389,20 @@ void setup() {
 void loop() {
   esp_task_wdt_reset();
   server.handleClient();
+  led.update();   // motor de blink no-bloqueante
+
+  // Detectar cliente WiFi conectado / desconectado
+  int clients = WiFi.softAPgetStationNum();
+  if (clients != lastClients) {
+    if (clients > lastClients) {
+      Serial.printf("[WiFi] Cliente conectado (%d total)\n", clients);
+      led.play(PAT_CLIENT_IN);    // ·−·
+    } else {
+      Serial.printf("[WiFi] Cliente desconectó (%d total)\n", clients);
+      led.play(PAT_CLIENT_OUT);   // −·−
+    }
+    lastClients = clients;
+  }
 
   // Botón BOOT: toggle challenge
   static bool lastBtn = HIGH;
@@ -335,18 +414,17 @@ void loop() {
     nonce++;
     prefs.putBool("chal", challengeActive);
     prefs.putInt("slot", challengeSlot);
-    digitalWrite(LED_PIN, challengeActive ? HIGH : LOW);
     Serial.printf("[BTN] Challenge %s | Slot %d (%s)\n",
       challengeActive ? "ON" : "OFF", challengeSlot, CHALLENGE_TYPES[challengeSlot]);
+    if (challengeActive) led.play(PAT_CHALLENGE_ON);  // ····
   }
   lastBtn = btn;
 
-  // LED: parpadeo lento normal, rápido en challenge
-  static unsigned long ledMs = 0;
-  unsigned long interval = challengeActive ? 150 : 1200;
-  if (millis() - ledMs > interval) {
-    ledMs = millis();
-    if (!challengeActive) digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+  // IDLE: pulso largo cada 3 s cuando no hay nada más
+  static unsigned long idleMs = 0;
+  if (led.idle() && (millis() - idleMs) > 3000) {
+    idleMs = millis();
+    led.play(PAT_IDLE);   // −
   }
 
   delay(10);
