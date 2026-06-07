@@ -137,19 +137,78 @@ void handleCmd() {
   server.send(200, "application/json", ok ? makeStatusJson() : "{\"error\":\"unknown cmd\"}");
 }
 
-// ── HANDLER: GET / (diagnóstico) ─────────────────────
+// ── HANDLER: GET / — sirve la PWA de test directamente ─
+const char TEST_PAGE[] PROGMEM = R"rawhtml(<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THLS Test</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:monospace;background:#07090f;color:#fff;
+     display:flex;flex-direction:column;align-items:center;
+     padding:24px 16px;gap:14px}
+#circle{width:150px;height:150px;border-radius:50%;display:flex;
+        flex-direction:column;align-items:center;justify-content:center;
+        border:3px solid #333;transition:background .4s,border-color .4s}
+#rssi{font-size:36px;font-weight:bold}
+#dist{font-size:12px;opacity:.7;margin-top:2px}
+#state{font-size:18px;font-weight:bold;letter-spacing:2px;text-align:center}
+#status{font-size:11px;color:#555;text-align:center;max-width:280px}
+button{background:#00b4d8;color:#000;border:none;border-radius:6px;
+       padding:16px 0;font-family:monospace;font-weight:bold;
+       font-size:18px;cursor:pointer;width:220px;letter-spacing:1px;
+       margin-top:4px}
+</style></head><body>
+<div style="font-size:11px;color:#00b4d8;letter-spacing:2px">TREASURE HUNTERS IoT</div>
+<div id="circle"><div id="rssi">—</div><div id="dist">sin datos</div></div>
+<div id="state">SIN CONEXIÓN</div>
+<div id="status">Presiona START para comenzar</div>
+<button id="btn" onclick="toggle()">&#9654; START</button>
+<script>
+const C=[
+  {n:-999,x:-94,bg:'#1a1a2e',l:'SIN SEÑAL'},
+  {n:-94, x:-84,bg:'#0d47a1',l:'POLAR'},
+  {n:-84, x:-75,bg:'#1976d2',l:'FRÍO'},
+  {n:-75, x:-67,bg:'#00838f',l:'FRESCO'},
+  {n:-67, x:-60,bg:'#7b1fa2',l:'TIBIO'},
+  {n:-60, x:-53,bg:'#c2185b',l:'CALIENTE'},
+  {n:-53, x:-47,bg:'#e64a19',l:'MUY CALIENTE'},
+  {n:-47, x:-41,bg:'#ff6f00',l:'ARDIENDO'},
+  {n:-41, x:0,  bg:'#00c853',l:'BALIZA LOCALIZADA'}
+];
+let tmr=null;
+function gS(r){return C.find(c=>r>=c.n&&r<c.x)||C[0];}
+function gD(r,t=-59){const d=Math.pow(10,(t-r)/25);return d<1?'< 1m':d>500?'>500m':d.toFixed(0)+'m';}
+async function poll(){
+  try{
+    const r=await fetch('/api/status',{signal:AbortSignal.timeout(2000)});
+    const d=await r.json();
+    const s=gS(d.rssi??-100);
+    document.getElementById('rssi').textContent=(d.rssi??-100)+' dBm';
+    document.getElementById('dist').textContent='aprox '+gD(d.rssi??-100,d.txPower??-59);
+    document.getElementById('state').textContent=s.l+(d.challenge?' ⚠':'');
+    document.getElementById('circle').style.background=s.bg+'55';
+    document.getElementById('circle').style.borderColor=s.bg;
+    document.getElementById('status').textContent='OK · '+new Date().toLocaleTimeString();
+  }catch(e){
+    document.getElementById('rssi').textContent='✗';
+    document.getElementById('dist').textContent='sin respuesta';
+    document.getElementById('state').textContent='ERROR';
+    document.getElementById('circle').style.borderColor='#c00';
+    document.getElementById('status').textContent=e.message.slice(0,40);
+  }
+}
+function toggle(){
+  const b=document.getElementById('btn');
+  if(tmr){clearInterval(tmr);tmr=null;b.textContent='\u25B6 START';b.style.background='#00b4d8';}
+  else{b.textContent='\u25A0 STOP';b.style.background='#e53935';poll();tmr=setInterval(poll,1000);}
+}
+</script></body></html>)rawhtml";
+
 void handleRoot() {
   addCORS();
-  String html = "<html><body style='background:#07090f;color:#8fa8bf;font-family:monospace;padding:20px'>";
-  html += "<h2 style='color:#00b4d8'>THLS Beacon v" + String(FW_VERSION) + "</h2>";
-  html += "<p>ID: THLS-" BEACON_ID " | Clase: " BEACON_CLASS " | Region: " BEACON_REGION "</p>";
-  html += "<p>Challenge: " + String(challengeActive ? "ON" : "OFF") + " | Slot: " + String(challengeSlot) + "</p>";
-  html += "<p>Clientes WiFi: " + String(WiFi.softAPgetStationNum()) + "</p>";
-  html += "<p>RSSI cliente: " + String(getClientRSSI()) + " dBm</p>";
-  html += "<p>Uptime: " + String(millis()/1000) + "s</p>";
-  html += "<p><a href='/api/status' style='color:#00b4d8'>/api/status</a></p>";
-  html += "</body></html>";
-  server.send(200, "text/html", html);
+  server.send_P(200, "text/html", TEST_PAGE);
 }
 
 // ── BLE STANDBY ───────────────────────────────────────
