@@ -8,7 +8,6 @@
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-ble-plx": "^3.2.0",
-    "react-native-wifi-reborn": "^4.10.0",
     "expo-network": "~6.0.1"
   },
   "scripts": {

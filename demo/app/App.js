@@ -28,9 +28,12 @@ import {
   SafeAreaView, PermissionsAndroid,
 } from 'react-native';
 import { BleManager, State } from 'react-native-ble-plx';
-import WifiManager from 'react-native-wifi-reborn';
 import * as Network from 'expo-network';
 import { StatusBar } from 'expo-status-bar';
+
+// react-native-wifi-reborn requiere dev build — carga opcional
+let WifiManager = null;
+try { WifiManager = require('react-native-wifi-reborn').default; } catch (_) {}
 
 // ── CONFIG ──────────────────────────────────────────────────
 const BEACON_PREFIX       = 'THLS-';
@@ -39,7 +42,7 @@ const CHALLENGE_URL       = 'http://192.168.4.1';
 const WIFI_SWITCH_RSSI    = -70;   // dBm: cambiar a híbrido (~20m)
 const BLE_CLOSE_RSSI      = -47;   // dBm: activar challenge (~1m)
 const WIFI_SCAN_INTERVAL  = 5000;  // ms entre scans WiFi
-const CAN_WIFI_SCAN       = Platform.OS === 'android';  // iOS no permite
+const CAN_WIFI_SCAN = Platform.OS === 'android' && WifiManager !== null;
 
 // ── ESTADOS DE SEÑAL ──────────────────────────────────────
 const STATES = [
