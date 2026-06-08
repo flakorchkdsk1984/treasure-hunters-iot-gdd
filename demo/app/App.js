@@ -193,17 +193,29 @@ export default function App() {
           setScanning(false);
           return;
         }
-        if (!device?.name?.startsWith(BEACON_PREFIX)) return;
+        if (!device?.name?.startsWith(BEACON_PREFIX) &&
+            !device?.localName?.startsWith(BEACON_PREFIX)) return;
 
+        const name = device.name || device.localName || 'THLS-?';
         const smooth = smoothRssi(device.rssi ?? -100);
         const st = getState(smooth);
         setRssi(smooth);
         setSignal(st);
-        setBeaconName(device.name);
+        setBeaconName(name);
 
-        // Log solo cada 3 lecturas para no saturar
+        // Leer challenge flag desde manufacturer data (sin conectar WiFi)
+        // Formato: FF FF [challenge 0/1] [slot] [txPower]
+        let challengeFlag = false;
+        if (device.manufacturerData) {
+          try {
+            const bytes = Buffer.from(device.manufacturerData, 'base64');
+            if (bytes.length >= 5) challengeFlag = bytes[4] === 0x01;
+          } catch (_) {}
+        }
+        if (challengeFlag) addLog(`⚡ ${name} CHALLENGE ACTIVO`);
+
         if (Math.random() < 0.33) {
-          addLog(`${device.name} → ${smooth} dBm | ${st.label}`);
+          addLog(`${name} → ${smooth} dBm | ${st.label}${challengeFlag ? ' ⚡' : ''}`);
         }
 
         // ¿Llegamos a ~1 metro?

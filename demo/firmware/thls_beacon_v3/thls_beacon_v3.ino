@@ -303,6 +303,44 @@ void handleRoot() {
   server.sendContent("");
 }
 
+// ── BLE ADVERTISING — se llama al inicio y al cambiar challenge ──
+BLEAdvertising* pAdv = nullptr;
+
+void updateBLEAdvertising() {
+  if (!pAdv) return;
+  pAdv->stop();
+
+  String devName = "THLS-" + String(BEACON_ID);
+
+  // — Advertisement packet —
+  // Contiene: flags + nombre corto + manufacturer data con challenge flag
+  BLEAdvertisementData advData;
+  advData.setFlags(0x06);  // LE General Discoverable, BR/EDR Not Supported
+
+  // Nombre corto en el advertisement (no solo en scan response)
+  // Así device.name llega aunque no se reciba scan response
+  advData.setShortName(devName.c_str());
+
+  // Manufacturer data: [0xFF 0xFF] company ID (custom) + [challenge] + [slot] + [txPower]
+  // La app lo lee para saber si hay challenge ANTES de conectar WiFi
+  String mfr;
+  mfr += (char)0xFF; mfr += (char)0xFF;          // company ID (custom)
+  mfr += (char)(challengeActive ? 0x01 : 0x00);  // challenge flag
+  mfr += (char)(challengeSlot & 0xFF);            // slot actual
+  mfr += (char)((uint8_t)(-TX_POWER_1M));         // txPower como byte positivo
+  advData.setManufacturerData(mfr);
+  pAdv->setAdvertisementData(advData);
+
+  // — Scan response: nombre completo —
+  BLEAdvertisementData scanData;
+  scanData.setName(devName.c_str());
+  pAdv->setScanResponseData(scanData);
+
+  pAdv->start();
+  Serial.printf("[BLE] Advertising actualizado — challenge:%s slot:%d\n",
+    challengeActive ? "ON" : "OFF", challengeSlot);
+}
+
 // ── BLE STANDBY ───────────────────────────────────────
 void initBLEStandby() {
   String devName = "THLS-" + String(BEACON_ID);
@@ -313,23 +351,12 @@ void initBLEStandby() {
   BLEService* pSvc = pSrv->createService(BLE_SVC_UUID);
   pSvc->start();
 
-  BLEAdvertising* pAdv = BLEDevice::getAdvertising();
-
-  // Advertising data: flags + service UUID
-  BLEAdvertisementData advData;
-  advData.setFlags(0x06);                         // LE General Discoverable
-  advData.setCompleteServices(BLEUUID(BLE_SVC_UUID));
-  pAdv->setAdvertisementData(advData);
-
-  // Scan response: nombre completo (Chrome/Android lo lee aquí)
-  BLEAdvertisementData scanData;
-  scanData.setName(devName.c_str());
-  pAdv->setScanResponseData(scanData);
-
+  pAdv = BLEDevice::getAdvertising();
   pAdv->setMinPreferred(0x06);
   pAdv->setMaxPreferred(0x12);
-  BLEDevice::startAdvertising();
-  Serial.printf("[BLE] Standby: \"%s\" (scan response name activo)\n", devName.c_str());
+
+  updateBLEAdvertising();  // configura y arranca
+  Serial.printf("[BLE] Standby listo: \"%s\"\n", devName.c_str());
 }
 
 // ── SETUP ─────────────────────────────────────────────
@@ -419,7 +446,8 @@ void loop() {
     prefs.putInt("slot", challengeSlot);
     Serial.printf("[BTN] Challenge %s | Slot %d (%s)\n",
       challengeActive ? "ON" : "OFF", challengeSlot, CHALLENGE_TYPES[challengeSlot]);
-    if (challengeActive) led.play(PAT_CHALLENGE_ON);  // ····
+    if (challengeActive) led.play(PAT_CHALLENGE_ON);
+    updateBLEAdvertising();  // actualiza manufacturer data con nuevo challenge flag
   }
   lastBtn = btn;
 
