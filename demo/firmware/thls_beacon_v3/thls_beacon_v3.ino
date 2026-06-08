@@ -321,13 +321,12 @@ void updateBLEAdvertising() {
   // Así device.name llega aunque no se reciba scan response
   advData.setShortName(devName.c_str());
 
-  // Manufacturer data: [0xFF 0xFF] company ID (custom) + [challenge] + [slot] + [txPower]
-  // La app lo lee para saber si hay challenge ANTES de conectar WiFi
-  String mfr;
-  mfr += (char)0xFF; mfr += (char)0xFF;          // company ID (custom)
-  mfr += (char)(challengeActive ? 0x01 : 0x00);  // challenge flag
-  mfr += (char)(challengeSlot & 0xFF);            // slot actual
-  mfr += (char)((uint8_t)(-TX_POWER_1M));         // txPower como byte positivo
+  // Manufacturer data: company ID (custom) + challenge flag + slot + txPower
+  std::string mfr;
+  mfr += (char)0xFF; mfr += (char)0xFF;
+  mfr += (char)(challengeActive ? 0x01 : 0x00);
+  mfr += (char)(challengeSlot & 0xFF);
+  mfr += (char)((uint8_t)(-TX_POWER_1M));
   advData.setManufacturerData(mfr);
   pAdv->setAdvertisementData(advData);
 
