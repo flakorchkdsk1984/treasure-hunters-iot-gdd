@@ -2,18 +2,19 @@
  * TREASURE HUNTERS IoT — THLS Scanner App
  * React Native + Expo + react-native-ble-plx
  *
- * Flujo:
- *  1. Escanea BLE pasivo (sin conectar a nada)
- *  2. Muestra RSSI + estado en tiempo real
- *  3. Al llegar a < 1m (RSSI ≥ -47): vibra + avisa conectar WiFi
- *  4. Al conectar WiFi "THLS-C001": lanza minijuego en WebView
+ * Flujo (iOS + Android):
+ *  1. Solicita permisos BLE/Ubicación (runtime en Android 12+)
+ *  2. Escanea BLE pasivo (sin conectar a ninguna red)
+ *  3. Muestra RSSI + estado + círculo pulsante en tiempo real
+ *  4. Al llegar a ~1m (RSSI ≥ -47): vibra + avisa conectar WiFi
+ *  5. Al detectar WiFi conectado: botón INICIAR MISIÓN → 192.168.4.1
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Vibration,
   Animated, Easing, Platform, Alert, Linking, ScrollView,
-  SafeAreaView,
+  SafeAreaView, PermissionsAndroid,
 } from 'react-native';
 import { BleManager, State } from 'react-native-ble-plx';
 import * as Network from 'expo-network';
@@ -23,8 +24,27 @@ import { StatusBar } from 'expo-status-bar';
 const BEACON_PREFIX   = 'THLS-';
 const BEACON_WIFI     = 'THLS-C001';
 const CHALLENGE_URL   = 'http://192.168.4.1';
-const SCAN_INTERVAL   = 800;   // ms entre updates de RSSI
-const CLOSE_THRESHOLD = -47;   // dBm = ~1 metro
+const CLOSE_THRESHOLD = -47;   // dBm ≈ 1 metro
+
+// ── PERMISOS ANDROID ──────────────────────────────────────
+async function requestAndroidPermissions() {
+  if (Platform.OS !== 'android') return true;
+
+  // Android 12+ (API 31+) requiere BLUETOOTH_SCAN y BLUETOOTH_CONNECT
+  const apiLevel = Platform.Version;
+  const perms = apiLevel >= 31
+    ? [
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      ]
+    : [
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      ];
+
+  const results = await PermissionsAndroid.requestMultiple(perms);
+  return Object.values(results).every(r => r === PermissionsAndroid.RESULTS.GRANTED);
+}
 
 // ── ESTADOS DE SEÑAL ─────────────────────────────────────
 const STATES = [
@@ -82,15 +102,20 @@ export default function App() {
   // Init BLE Manager
   useEffect(() => {
     bleManager.current = new BleManager();
+    addLog(`Plataforma: ${Platform.OS} ${Platform.Version}`);
+    if (Platform.OS === 'android') {
+      addLog(`Android API ${Platform.Version} — ${Platform.Version >= 31 ? 'requiere BLUETOOTH_SCAN' : 'requiere LOCATION'}`);
+    }
     const sub = bleManager.current.onStateChange(state => {
       setBleState(state);
-      addLog(`BLE: ${state}`);
-      if (state === State.PoweredOn) addLog('BLE listo — presiona DETECTAR');
+      if (state === State.PoweredOn)  addLog('✓ BLE listo — presiona DETECTAR BALIZA');
+      if (state === State.PoweredOff) addLog('⚠ Bluetooth desactivado');
+      if (state === State.Unauthorized) addLog('✗ Permiso BLE denegado — ir a Ajustes');
     }, true);
     return () => {
       sub.remove();
-      if (scanRef.current) bleManager.current.stopDeviceScan();
-      bleManager.current.destroy();
+      bleManager.current?.stopDeviceScan();
+      bleManager.current?.destroy();
     };
   }, []);
 
@@ -114,18 +139,20 @@ export default function App() {
   // Monitor WiFi cuando fase es 'close'
   useEffect(() => {
     if (phase !== 'close') return;
+    addLog('Esperando conexión a WiFi "' + BEACON_WIFI + '"...');
     const iv = setInterval(async () => {
-      const net = await Network.getNetworkStateAsync();
-      if (net.type === Network.NetworkStateType.WIFI) {
-        const ssid = await Network.getIpAddressAsync();
-        // En iOS no podemos leer SSID sin entitlement especial,
-        // así que chequeamos que hay WiFi y asumimos es THLS-C001
+      try {
+        const net = await Network.getNetworkStateAsync();
+        if (net.type !== Network.NetworkStateType.WIFI) return;
+
+        // Android puede verificar el SSID; iOS no sin entitlement especial
+        // En ambos: si hay WiFi y estamos en fase 'close', asumimos THLS-C001
         setWifiConnected(true);
         setPhase('challenge');
-        addLog('✓ WiFi conectado — cargando challenge...');
+        addLog('✓ WiFi conectado — misión disponible');
         Vibration.vibrate([200, 100, 200, 100, 400]);
         clearInterval(iv);
-      }
+      } catch (_) {}
     }, 1500);
     return () => clearInterval(iv);
   }, [phase]);
@@ -137,28 +164,55 @@ export default function App() {
 
   function startScan() {
     if (bleState !== State.PoweredOn) {
-      Alert.alert('Bluetooth', 'Activa el Bluetooth del teléfono primero.');
+      Alert.alert('Bluetooth desactivado',
+        'Activa el Bluetooth del teléfono para detectar balizas.',
+        [{ text: 'Abrir ajustes', onPress: () => Linking.openSettings() },
+         { text: 'Cancelar' }]);
       return;
     }
-    setScanning(true);
-    addLog('Escaneando balizas THLS...');
-    bleManager.current.startDeviceScan(null, { allowDuplicates: true }, (err, device) => {
-      if (err) { addLog('Error BLE: ' + err.message); return; }
-      if (!device?.name?.startsWith(BEACON_PREFIX)) return;
 
-      const smooth = smoothRssi(device.rssi ?? -100);
-      const st = getState(smooth);
-      setRssi(smooth);
-      setSignal(st);
-      setBeaconName(device.name);
-      addLog(`${device.name} → ${smooth} dBm | ${st.label}`);
-
-      // ¿Llegamos a < 1 metro?
-      if (smooth >= CLOSE_THRESHOLD && phase === 'scan') {
-        setPhase('close');
-        Vibration.vibrate([100, 80, 100, 80, 300]);
-        addLog('⚡ BALIZA CERCA — Conecta WiFi "' + BEACON_WIFI + '"');
+    // Android: pedir permisos en runtime antes de escanear
+    requestAndroidPermissions().then(granted => {
+      if (!granted) {
+        Alert.alert('Permisos necesarios',
+          'THLS necesita Bluetooth y Ubicación para detectar balizas.\n\nActívalos en Ajustes → Aplicaciones → THLS Scanner → Permisos.',
+          [{ text: 'Abrir Ajustes', onPress: () => Linking.openSettings() },
+           { text: 'Cancelar' }]);
+        return;
       }
+      setScanning(true);
+      addLog('Escaneando balizas THLS...');
+
+      bleManager.current.startDeviceScan(null, { allowDuplicates: true }, (err, device) => {
+        if (err) {
+          addLog('Error BLE: ' + err.message);
+          // Error 102 = permisos denegados en Android
+          if (err.errorCode === 102) {
+            Alert.alert('Permiso denegado', 'Activa los permisos de Bluetooth en los ajustes del sistema.');
+          }
+          setScanning(false);
+          return;
+        }
+        if (!device?.name?.startsWith(BEACON_PREFIX)) return;
+
+        const smooth = smoothRssi(device.rssi ?? -100);
+        const st = getState(smooth);
+        setRssi(smooth);
+        setSignal(st);
+        setBeaconName(device.name);
+
+        // Log solo cada 3 lecturas para no saturar
+        if (Math.random() < 0.33) {
+          addLog(`${device.name} → ${smooth} dBm | ${st.label}`);
+        }
+
+        // ¿Llegamos a ~1 metro?
+        if (smooth >= CLOSE_THRESHOLD && phase === 'scan') {
+          setPhase('close');
+          Vibration.vibrate([100, 80, 100, 80, 300]);
+          addLog('⚡ BALIZA CERCA — Conecta WiFi "' + BEACON_WIFI + '"');
+        }
+      });
     });
   }
 
