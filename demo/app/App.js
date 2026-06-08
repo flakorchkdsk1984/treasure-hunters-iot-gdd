@@ -1,13 +1,24 @@
 /**
- * TREASURE HUNTERS IoT — THLS Scanner App
- * React Native + Expo + react-native-ble-plx
+ * TREASURE HUNTERS IoT — THLS Scanner App v2.0
+ * Detección HÍBRIDA: WiFi scan (lejos) + BLE scan (cerca) + WiFi connect (minijuego)
  *
- * Flujo (iOS + Android):
- *  1. Solicita permisos BLE/Ubicación (runtime en Android 12+)
- *  2. Escanea BLE pasivo (sin conectar a ninguna red)
- *  3. Muestra RSSI + estado + círculo pulsante en tiempo real
- *  4. Al llegar a ~1m (RSSI ≥ -47): vibra + avisa conectar WiFi
- *  5. Al detectar WiFi conectado: botón INICIAR MISIÓN → 192.168.4.1
+ * MÁQUINA DE ESTADOS:
+ *
+ *   IDLE ──► [start] ──► WIFI_SCAN  (Android) / BLE_SCAN (iOS)
+ *                              │
+ *              WiFi RSSI > -70 │ (~20m)
+ *                              ▼
+ *                         HYBRID_SCAN  (WiFi + BLE simultáneo)
+ *                              │
+ *              BLE RSSI > -47  │ (~1m)
+ *                              ▼
+ *                         CLOSE  ── avisa conectar "THLS-C001"
+ *                              │
+ *              WiFi conectado  │
+ *                              ▼
+ *                         CHALLENGE  ── botón → 192.168.4.1
+ *
+ * iOS: sin WiFi scan (Apple lo prohíbe), solo BLE_SCAN → CLOSE → CHALLENGE
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -17,36 +28,20 @@ import {
   SafeAreaView, PermissionsAndroid,
 } from 'react-native';
 import { BleManager, State } from 'react-native-ble-plx';
+import WifiManager from 'react-native-wifi-reborn';
 import * as Network from 'expo-network';
 import { StatusBar } from 'expo-status-bar';
 
-// ── CONFIG ────────────────────────────────────────────────
-const BEACON_PREFIX   = 'THLS-';
-const BEACON_WIFI     = 'THLS-C001';
-const CHALLENGE_URL   = 'http://192.168.4.1';
-const CLOSE_THRESHOLD = -47;   // dBm ≈ 1 metro
+// ── CONFIG ──────────────────────────────────────────────────
+const BEACON_PREFIX       = 'THLS-';
+const BEACON_WIFI_SSID    = 'THLS-C001';
+const CHALLENGE_URL       = 'http://192.168.4.1';
+const WIFI_SWITCH_RSSI    = -70;   // dBm: cambiar a híbrido (~20m)
+const BLE_CLOSE_RSSI      = -47;   // dBm: activar challenge (~1m)
+const WIFI_SCAN_INTERVAL  = 5000;  // ms entre scans WiFi
+const CAN_WIFI_SCAN       = Platform.OS === 'android';  // iOS no permite
 
-// ── PERMISOS ANDROID ──────────────────────────────────────
-async function requestAndroidPermissions() {
-  if (Platform.OS !== 'android') return true;
-
-  // Android 12+ (API 31+) requiere BLUETOOTH_SCAN y BLUETOOTH_CONNECT
-  const apiLevel = Platform.Version;
-  const perms = apiLevel >= 31
-    ? [
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      ]
-    : [
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      ];
-
-  const results = await PermissionsAndroid.requestMultiple(perms);
-  return Object.values(results).every(r => r === PermissionsAndroid.RESULTS.GRANTED);
-}
-
-// ── ESTADOS DE SEÑAL ─────────────────────────────────────
+// ── ESTADOS DE SEÑAL ──────────────────────────────────────
 const STATES = [
   { id:'dead',    label:'SIN SEÑAL',         min:-999, max:-94,  color:'#37474f', pulse:0    },
   { id:'polar',   label:'POLAR',             min:-94,  max:-84,  color:'#0d47a1', pulse:3.5  },
@@ -62,317 +57,372 @@ const STATES = [
 function getState(rssi) {
   return STATES.find(s => rssi >= s.min && rssi < s.max) || STATES[0];
 }
+function getDist(rssi, txp = -59) {
+  const d = Math.pow(10, (txp - rssi) / 25);
+  return d < 1 ? '< 1 m' : d > 500 ? '> 500 m' : d.toFixed(0) + ' m';
+}
 
-function getDist(rssi, txPower = -59) {
-  const d = Math.pow(10, (txPower - rssi) / 25);
-  if (d < 1)   return '< 1 m';
-  if (d > 500) return '> 500 m';
-  return d.toFixed(0) + ' m';
+// ── PERMISOS ANDROID ──────────────────────────────────────
+async function requestAndroidPermissions() {
+  if (Platform.OS !== 'android') return true;
+  const api = Platform.Version;
+  const perms = api >= 31
+    ? [ PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION ]
+    : [ PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION ];
+  const r = await PermissionsAndroid.requestMultiple(perms);
+  return Object.values(r).every(v => v === PermissionsAndroid.RESULTS.GRANTED);
 }
 
 // ── SMOOTH RSSI ───────────────────────────────────────────
-function useSmoothedRssi(windowSize = 5) {
-  const history = useRef([]);
-  return useCallback((raw) => {
-    history.current.push(raw);
-    if (history.current.length > windowSize) history.current.shift();
-    return Math.round(
-      history.current.reduce((a, b) => a + b, 0) / history.current.length
-    );
-  }, [windowSize]);
+function useSmoother(win = 5) {
+  const h = useRef([]);
+  return useCallback((v) => {
+    h.current.push(v);
+    if (h.current.length > win) h.current.shift();
+    return Math.round(h.current.reduce((a, b) => a + b, 0) / h.current.length);
+  }, []);
 }
 
-// ── COMPONENTE PRINCIPAL ──────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// APP
+// ═══════════════════════════════════════════════════════════
 export default function App() {
-  const [bleState, setBleState]       = useState('unknown');
-  const [scanning, setScanning]       = useState(false);
-  const [rssi, setRssi]               = useState(-100);
-  const [beaconName, setBeaconName]   = useState(null);
-  const [signal, setSignal]           = useState(STATES[0]);
-  const [log, setLog]                 = useState([]);
-  const [phase, setPhase]             = useState('scan'); // scan | close | challenge
-  const [wifiConnected, setWifiConnected] = useState(false);
+  // Estado de detección híbrida
+  const [scanPhase, setScanPhase] = useState('idle');
+  // idle | wifi_scan | hybrid | close | challenge
 
-  const bleManager  = useRef(null);
-  const scanRef     = useRef(null);
-  const pulseAnim   = useRef(new Animated.Value(1)).current;
-  const pulseLoop   = useRef(null);
-  const smoothRssi  = useSmoothedRssi(5);
+  const [bleReady, setBleReady]   = useState(false);
+  const [rssi, setRssi]           = useState(-100);
+  const [wifiRssi, setWifiRssi]   = useState(null);  // RSSI del scan WiFi (sin conectar)
+  const [bleRssi, setBleRssi]     = useState(null);  // RSSI BLE
+  const [signal, setSignal]       = useState(STATES[0]);
+  const [beaconName, setBeaconName] = useState(null);
+  const [challengeFlag, setChallengeFlag] = useState(false);
+  const [log, setLog]             = useState([]);
 
-  // Init BLE Manager
+  const bleManager   = useRef(null);
+  const wifiTimer    = useRef(null);
+  const wifiMonitor  = useRef(null);
+  const pulseAnim    = useRef(new Animated.Value(1)).current;
+  const pulseLoop    = useRef(null);
+  const smoothBle    = useSmoother(5);
+  const smoothWifi   = useSmoother(3);
+  const phaseRef     = useRef('idle');
+
+  function setPhase(p) { phaseRef.current = p; setScanPhase(p); }
+
+  // Init BLE
   useEffect(() => {
     bleManager.current = new BleManager();
-    addLog(`Plataforma: ${Platform.OS} ${Platform.Version}`);
-    if (Platform.OS === 'android') {
-      addLog(`Android API ${Platform.Version} — ${Platform.Version >= 31 ? 'requiere BLUETOOTH_SCAN' : 'requiere LOCATION'}`);
-    }
-    const sub = bleManager.current.onStateChange(state => {
-      setBleState(state);
-      if (state === State.PoweredOn)  addLog('✓ BLE listo — presiona DETECTAR BALIZA');
-      if (state === State.PoweredOff) addLog('⚠ Bluetooth desactivado');
-      if (state === State.Unauthorized) addLog('✗ Permiso BLE denegado — ir a Ajustes');
+    addLog(`${Platform.OS} ${Platform.Version} | WiFi scan: ${CAN_WIFI_SCAN ? 'SI' : 'NO (iOS)'}`);
+    const sub = bleManager.current.onStateChange(s => {
+      if (s === State.PoweredOn)    { setBleReady(true);  addLog('✓ BLE listo'); }
+      if (s === State.PoweredOff)   { setBleReady(false); addLog('⚠ BT desactivado'); }
+      if (s === State.Unauthorized) { addLog('✗ Permiso BLE denegado'); }
     }, true);
     return () => {
       sub.remove();
-      bleManager.current?.stopDeviceScan();
+      stopAll();
       bleManager.current?.destroy();
     };
   }, []);
 
-  // Pulso animado — velocidad según estado
+  // Animación pulso
   useEffect(() => {
     if (pulseLoop.current) pulseLoop.current.stop();
-    if (!signal.pulse) {
-      pulseAnim.setValue(1);
-      return;
-    }
+    if (!signal.pulse) { pulseAnim.setValue(1); return; }
     const dur = signal.pulse * 1000;
-    pulseLoop.current = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.35, duration: dur / 2, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1.0,  duration: dur / 2, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    );
+    pulseLoop.current = Animated.loop(Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 1.4, duration: dur/2, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1.0, duration: dur/2, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    ]));
     pulseLoop.current.start();
   }, [signal.id]);
 
-  // Monitor WiFi cuando fase es 'close'
+  // Monitor WiFi conectado (fase close)
   useEffect(() => {
-    if (phase !== 'close') return;
-    addLog('Esperando conexión a WiFi "' + BEACON_WIFI + '"...');
-    const iv = setInterval(async () => {
+    if (scanPhase !== 'close') return;
+    wifiMonitor.current = setInterval(async () => {
       try {
         const net = await Network.getNetworkStateAsync();
-        if (net.type !== Network.NetworkStateType.WIFI) return;
-
-        // Android puede verificar el SSID; iOS no sin entitlement especial
-        // En ambos: si hay WiFi y estamos en fase 'close', asumimos THLS-C001
-        setWifiConnected(true);
-        setPhase('challenge');
-        addLog('✓ WiFi conectado — misión disponible');
-        Vibration.vibrate([200, 100, 200, 100, 400]);
-        clearInterval(iv);
+        if (net.type === Network.NetworkStateType.WIFI) {
+          clearInterval(wifiMonitor.current);
+          setPhase('challenge');
+          addLog('✓ WiFi conectado — MISIÓN DISPONIBLE');
+          Vibration.vibrate([200, 100, 200, 100, 400]);
+        }
       } catch (_) {}
     }, 1500);
-    return () => clearInterval(iv);
-  }, [phase]);
+    return () => clearInterval(wifiMonitor.current);
+  }, [scanPhase]);
 
   function addLog(msg) {
     const ts = new Date().toLocaleTimeString('es', { hour12: false });
-    setLog(prev => [`[${ts}] ${msg}`, ...prev].slice(0, 40));
+    setLog(prev => [`[${ts}] ${msg}`, ...prev].slice(0, 50));
   }
 
-  function startScan() {
-    if (bleState !== State.PoweredOn) {
-      Alert.alert('Bluetooth desactivado',
-        'Activa el Bluetooth del teléfono para detectar balizas.',
-        [{ text: 'Abrir ajustes', onPress: () => Linking.openSettings() },
-         { text: 'Cancelar' }]);
-      return;
+  // ── UPDATE RSSI COMBINADO ──────────────────────────────
+  function updateCombined(bRssi, wRssi) {
+    let combined;
+    if (bRssi !== null && wRssi !== null) {
+      // Híbrido: BLE tiene más peso cuando está cerca, WiFi cuando lejos
+      const bleWeight = bRssi > -65 ? 0.75 : 0.4;
+      combined = Math.round(bRssi * bleWeight + wRssi * (1 - bleWeight));
+    } else {
+      combined = bRssi ?? wRssi ?? -100;
     }
+    setRssi(combined);
+    const st = getState(combined);
+    setSignal(st);
+    return combined;
+  }
 
-    // Android: pedir permisos en runtime antes de escanear
-    requestAndroidPermissions().then(granted => {
-      if (!granted) {
-        Alert.alert('Permisos necesarios',
-          'THLS necesita Bluetooth y Ubicación para detectar balizas.\n\nActívalos en Ajustes → Aplicaciones → THLS Scanner → Permisos.',
-          [{ text: 'Abrir Ajustes', onPress: () => Linking.openSettings() },
-           { text: 'Cancelar' }]);
-        return;
-      }
-      setScanning(true);
-      addLog('Escaneando balizas THLS...');
+  // ── SCAN WIFI (Android, sin conectar) ──────────────────
+  function startWifiScan() {
+    if (!CAN_WIFI_SCAN) return;
+    addLog('📶 Iniciando scan WiFi pasivo...');
 
-      bleManager.current.startDeviceScan(null, { allowDuplicates: true }, (err, device) => {
-        if (err) {
-          addLog('Error BLE: ' + err.message);
-          // Error 102 = permisos denegados en Android
-          if (err.errorCode === 102) {
-            Alert.alert('Permiso denegado', 'Activa los permisos de Bluetooth en los ajustes del sistema.');
+    const doScan = async () => {
+      try {
+        const networks = await WifiManager.loadWifiList();
+        const beacon = networks.find(n => n.SSID === BEACON_WIFI_SSID);
+        if (beacon) {
+          const ws = smoothWifi(beacon.level);
+          setWifiRssi(ws);
+          setBeaconName(beacon.SSID);
+          addLog(`📶 WiFi: ${beacon.SSID} → ${ws} dBm`);
+          const combined = updateCombined(bleRssi, ws);
+
+          // Si WiFi ya es fuerte, arrancar BLE también
+          if (ws >= WIFI_SWITCH_RSSI && phaseRef.current === 'wifi_scan') {
+            addLog('📡 Señal fuerte — activando BLE...');
+            setPhase('hybrid');
+            startBleScan();
           }
-          setScanning(false);
-          return;
+        } else {
+          addLog('📶 WiFi: baliza no detectada');
         }
-        if (!device?.name?.startsWith(BEACON_PREFIX) &&
-            !device?.localName?.startsWith(BEACON_PREFIX)) return;
+      } catch (e) {
+        addLog('WiFi scan error: ' + e.message);
+      }
+    };
 
-        const name = device.name || device.localName || 'THLS-?';
-        const smooth = smoothRssi(device.rssi ?? -100);
-        const st = getState(smooth);
-        setRssi(smooth);
-        setSignal(st);
-        setBeaconName(name);
+    doScan();
+    wifiTimer.current = setInterval(doScan, WIFI_SCAN_INTERVAL);
+  }
 
-        // Leer challenge flag desde manufacturer data (sin conectar WiFi)
-        // Formato: FF FF [challenge 0/1] [slot] [txPower]
-        let challengeFlag = false;
-        if (device.manufacturerData) {
-          try {
-            const bytes = Buffer.from(device.manufacturerData, 'base64');
-            if (bytes.length >= 5) challengeFlag = bytes[4] === 0x01;
-          } catch (_) {}
-        }
-        if (challengeFlag) addLog(`⚡ ${name} CHALLENGE ACTIVO`);
+  // ── SCAN BLE (pasivo) ───────────────────────────────────
+  function startBleScan() {
+    if (!bleReady) return;
+    bleManager.current.startDeviceScan(null, { allowDuplicates: true }, (err, device) => {
+      if (err) { addLog('BLE error: ' + err.message); return; }
+      if (!device?.name?.startsWith(BEACON_PREFIX) &&
+          !device?.localName?.startsWith(BEACON_PREFIX)) return;
 
-        if (Math.random() < 0.33) {
-          addLog(`${name} → ${smooth} dBm | ${st.label}${challengeFlag ? ' ⚡' : ''}`);
-        }
+      const name = device.name || device.localName || 'THLS-?';
+      const bs = smoothBle(device.rssi ?? -100);
+      setBleRssi(bs);
+      setBeaconName(name);
 
-        // ¿Llegamos a ~1 metro?
-        if (smooth >= CLOSE_THRESHOLD && phase === 'scan') {
-          setPhase('close');
-          Vibration.vibrate([100, 80, 100, 80, 300]);
-          addLog('⚡ BALIZA CERCA — Conecta WiFi "' + BEACON_WIFI + '"');
-        }
-      });
+      // Manufacturer data: challenge flag
+      let chal = false;
+      if (device.manufacturerData) {
+        try {
+          const b = Buffer.from(device.manufacturerData, 'base64');
+          if (b.length >= 3) chal = b[2] === 0x01;
+        } catch (_) {}
+      }
+      setChallengeFlag(chal);
+
+      const combined = updateCombined(bs, wifiRssi);
+      if (Math.random() < 0.4)
+        addLog(`📡 BLE: ${name} → ${bs} dBm${chal ? ' ⚡' : ''} | combinado: ${combined}`);
+
+      // Umbral de ~1 metro: activar fase CLOSE
+      if (bs >= BLE_CLOSE_RSSI && phaseRef.current !== 'close' && phaseRef.current !== 'challenge') {
+        setPhase('close');
+        Vibration.vibrate([100, 80, 100, 80, 300]);
+        addLog('⚡ A ~1 METRO — Conecta WiFi "' + BEACON_WIFI_SSID + '"');
+        // Detener WiFi scan (ya no lo necesitamos)
+        clearInterval(wifiTimer.current);
+      }
     });
   }
 
-  function stopScan() {
+  // ── START ──────────────────────────────────────────────
+  async function startScan() {
+    const granted = await requestAndroidPermissions();
+    if (!granted) {
+      Alert.alert('Permisos necesarios',
+        'Activa Bluetooth y Ubicación en Ajustes → Aplicaciones → THLS Scanner.',
+        [{ text: 'Ajustes', onPress: () => Linking.openSettings() }, { text: 'OK' }]);
+      return;
+    }
+
+    if (CAN_WIFI_SCAN) {
+      // Android: arrancar con WiFi scan (más alcance)
+      setPhase('wifi_scan');
+      addLog('=== BÚSQUEDA HÍBRIDA WiFi + BLE ===');
+      startWifiScan();
+      // BLE también arranca en paralelo para no perder tiempo
+      addLog('📡 BLE en paralelo...');
+      startBleScan();
+    } else {
+      // iOS: directo a BLE
+      setPhase('hybrid');
+      addLog('=== BÚSQUEDA BLE (iOS) ===');
+      startBleScan();
+    }
+  }
+
+  function stopAll() {
     bleManager.current?.stopDeviceScan();
-    setScanning(false);
-    setPhase('scan');
-    setWifiConnected(false);
-    addLog('Escaneo detenido');
+    clearInterval(wifiTimer.current);
+    clearInterval(wifiMonitor.current);
+    setPhase('idle');
+    setRssi(-100); setWifiRssi(null); setBleRssi(null);
+    setSignal(STATES[0]); setBeaconName(null); setChallengeFlag(false);
+    addLog('— Búsqueda detenida —');
   }
 
-  function openChallenge() {
-    Linking.openURL(CHALLENGE_URL);
-  }
-
-  // ── RENDER ────────────────────────────────────────────
-  const circleStyle = {
-    backgroundColor: signal.color + '33',
-    borderColor: signal.color,
-    transform: [{ scale: pulseAnim }],
-  };
+  // ── RENDER ─────────────────────────────────────────────
+  const scanning   = scanPhase !== 'idle';
+  const phaseLabel = {
+    idle:       '—',
+    wifi_scan:  '📶 WiFi',
+    hybrid:     '📶+📡 Híbrido',
+    close:      '📡 BLE',
+    challenge:  '✓ Conectado',
+  }[scanPhase] || '—';
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={s.safe}>
       <StatusBar style="light" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>TREASURE <Text style={styles.logoRed}>HUNTERS</Text> IoT</Text>
-        <Text style={styles.headerSub}>{beaconName || 'SIN BALIZA'}</Text>
+      <View style={s.header}>
+        <Text style={s.logo}>TREASURE <Text style={s.logoRed}>HUNTERS</Text> IoT</Text>
+        <Text style={s.headerSub}>{phaseLabel} | {beaconName || 'sin baliza'}</Text>
       </View>
 
       {/* Círculo RSSI pulsante */}
-      <View style={styles.circleWrap}>
-        <Animated.View style={[styles.circle, circleStyle]}>
-          <Text style={[styles.rssiText, { color: signal.color }]}>{rssi} dBm</Text>
-          <Text style={styles.distText}>{getDist(rssi)}</Text>
+      <View style={s.circleWrap}>
+        <Animated.View style={[s.circle, {
+          backgroundColor: signal.color + '33',
+          borderColor: signal.color,
+          transform: [{ scale: pulseAnim }],
+        }]}>
+          <Text style={[s.rssiText, { color: signal.color }]}>{rssi} dBm</Text>
+          <Text style={s.distText}>{getDist(rssi)}</Text>
         </Animated.View>
       </View>
 
       {/* Estado */}
-      <Text style={[styles.stateLabel, { color: signal.color }]}>{signal.label}</Text>
+      <Text style={[s.stateLabel, { color: signal.color }]}>{signal.label}</Text>
 
-      {/* Fase: CERCA */}
-      {phase === 'close' && !wifiConnected && (
-        <View style={[styles.alertBox, { borderColor: '#ff6f00' }]}>
-          <Text style={styles.alertTitle}>⚡ BALIZA CERCA</Text>
-          <Text style={styles.alertSub}>
-            Conecta WiFi "<Text style={{ color: '#ff6f00' }}>{BEACON_WIFI}</Text>" para iniciar misión
-          </Text>
-          <TouchableOpacity style={styles.wifiBtn} onPress={() => Linking.openSettings()}>
-            <Text style={styles.wifiBtnText}>Abrir Configuración WiFi →</Text>
+      {/* Barras individuales WiFi / BLE */}
+      {scanning && (wifiRssi !== null || bleRssi !== null) && (
+        <View style={s.dualBar}>
+          {wifiRssi !== null && (
+            <View style={s.barItem}>
+              <Text style={s.barIcon}>📶</Text>
+              <Text style={s.barVal}>{wifiRssi} dBm</Text>
+            </View>
+          )}
+          {bleRssi !== null && (
+            <View style={s.barItem}>
+              <Text style={s.barIcon}>📡</Text>
+              <Text style={s.barVal}>{bleRssi} dBm</Text>
+            </View>
+          )}
+          {challengeFlag && (
+            <View style={s.barItem}>
+              <Text style={[s.barVal, { color: '#e53935' }]}>⚡ CHALLENGE</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Fase CLOSE */}
+      {scanPhase === 'close' && (
+        <View style={[s.alert, { borderColor: '#ff6f00' }]}>
+          <Text style={s.alertTitle}>⚡ BALIZA A ~1 METRO</Text>
+          <Text style={s.alertSub}>Conecta WiFi "<Text style={{ color: '#ff6f00' }}>{BEACON_WIFI_SSID}</Text>"</Text>
+          <TouchableOpacity style={s.alertBtn} onPress={() => Linking.openSettings()}>
+            <Text style={s.alertBtnTxt}>Abrir Configuración WiFi →</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Fase: CHALLENGE */}
-      {phase === 'challenge' && (
-        <View style={[styles.alertBox, { borderColor: '#00c853' }]}>
-          <Text style={[styles.alertTitle, { color: '#00c853' }]}>⚠ INFILTRACIÓN DISPONIBLE</Text>
-          <Text style={styles.alertSub}>WiFi conectado. Abre el minijuego.</Text>
-          <TouchableOpacity style={[styles.wifiBtn, { backgroundColor: '#00c85322', borderColor: '#00c853' }]}
-            onPress={openChallenge}>
-            <Text style={[styles.wifiBtnText, { color: '#00c853' }]}>▶ INICIAR MISIÓN</Text>
+      {/* Fase CHALLENGE */}
+      {scanPhase === 'challenge' && (
+        <View style={[s.alert, { borderColor: '#00c853' }]}>
+          <Text style={[s.alertTitle, { color: '#00c853' }]}>⚠ INFILTRACIÓN DISPONIBLE</Text>
+          <Text style={s.alertSub}>WiFi conectado. Ejecuta la misión.</Text>
+          <TouchableOpacity style={[s.alertBtn, { backgroundColor: '#00c85322', borderColor: '#00c853' }]}
+            onPress={() => Linking.openURL(CHALLENGE_URL)}>
+            <Text style={[s.alertBtnTxt, { color: '#00c853' }]}>▶ INICIAR MISIÓN</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Botones */}
-      <View style={styles.btnRow}>
-        {!scanning ? (
-          <TouchableOpacity style={styles.btnStart} onPress={startScan}>
-            <Text style={styles.btnText}>📡 DETECTAR BALIZA</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.btnStop} onPress={stopScan}>
-            <Text style={styles.btnText}>■ DETENER</Text>
-          </TouchableOpacity>
-        )}
+      {/* Botón principal */}
+      <View style={s.btnRow}>
+        {!scanning
+          ? <TouchableOpacity style={s.btnStart} onPress={startScan}>
+              <Text style={s.btnTxt}>📡 BUSCAR BALIZA</Text>
+            </TouchableOpacity>
+          : <TouchableOpacity style={s.btnStop} onPress={stopAll}>
+              <Text style={[s.btnTxt, { color: '#e53935' }]}>■ DETENER</Text>
+            </TouchableOpacity>
+        }
       </View>
 
-      {/* Log terminal */}
-      <ScrollView style={styles.term} contentContainerStyle={{ paddingBottom: 8 }}>
-        {log.map((l, i) => (
-          <Text key={i} style={styles.logLine}>{l}</Text>
-        ))}
+      {/* Terminal de log */}
+      <ScrollView style={s.term}>
+        {log.map((l, i) => <Text key={i} style={s.logLine}>{l}</Text>)}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 // ── ESTILOS ───────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: '#07090f' },
-  header:      { padding: 12, borderBottomWidth: 1, borderColor: '#1e3a5f',
-                 flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  logo:        { color: '#00b4d8', fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
-                 fontSize: 12, letterSpacing: 2 },
-  logoRed:     { color: '#e53935' },
-  headerSub:   { color: '#334', fontSize: 10,
-                 fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
-  circleWrap:  { alignItems: 'center', marginTop: 24, marginBottom: 16 },
-  circle:      { width: 170, height: 170, borderRadius: 85, borderWidth: 3,
-                 alignItems: 'center', justifyContent: 'center' },
-  rssiText:    { fontSize: 36, fontWeight: 'bold',
-                 fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
-  distText:    { color: '#8fa8bf', fontSize: 12, marginTop: 4,
-                 fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
-  stateLabel:  { textAlign: 'center', fontSize: 20, fontWeight: 'bold',
-                 letterSpacing: 3, marginBottom: 12,
-                 fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
-  alertBox:    { marginHorizontal: 16, borderWidth: 2, borderRadius: 8,
-                 padding: 14, marginBottom: 10, backgroundColor: '#07090f' },
-  alertTitle:  { color: '#ff6f00', fontWeight: 'bold', fontSize: 14,
-                 letterSpacing: 2, textAlign: 'center', marginBottom: 6,
-                 fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
-  alertSub:    { color: '#8fa8bf', fontSize: 12, textAlign: 'center',
-                 fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
-  wifiBtn:     { marginTop: 10, borderWidth: 1, borderColor: '#ff6f00',
-                 borderRadius: 6, padding: 12, alignItems: 'center',
-                 backgroundColor: '#ff6f0022' },
-  wifiBtnText: { color: '#ff6f00', fontWeight: 'bold', fontSize: 13,
-                 fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
-  btnRow:      { marginHorizontal: 16, marginBottom: 8 },
-  btnStart:    { backgroundColor: '#00b4d8', borderRadius: 8, padding: 16, alignItems: 'center' },
-  btnStop:     { backgroundColor: '#e5393522', borderWidth: 1, borderColor: '#e53935',
-                 borderRadius: 8, padding: 16, alignItems: 'center' },
-  btnText:     { color: '#07090f', fontWeight: 'bold', fontSize: 15,
-                 fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
-  term:        { flex: 1, marginHorizontal: 16, marginTop: 4,
-                 backgroundColor: '#05080c', borderRadius: 8, padding: 8,
-                 borderWidth: 1, borderColor: '#1e3a5f' },
-  logLine:     { color: '#1e3a5f', fontSize: 10, lineHeight: 18,
-                 fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace' },
-});
-
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+const FONT = Platform.OS === 'ios' ? 'Courier New' : 'monospace';
+const s = StyleSheet.create({
+  safe:       { flex:1, backgroundColor:'#07090f' },
+  header:     { padding:12, borderBottomWidth:1, borderColor:'#1e3a5f',
+                flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
+  logo:       { color:'#00b4d8', fontFamily:FONT, fontSize:12, letterSpacing:2 },
+  logoRed:    { color:'#e53935' },
+  headerSub:  { color:'#334', fontSize:10, fontFamily:FONT },
+  circleWrap: { alignItems:'center', marginTop:20, marginBottom:12 },
+  circle:     { width:160, height:160, borderRadius:80, borderWidth:3,
+                alignItems:'center', justifyContent:'center' },
+  rssiText:   { fontSize:34, fontWeight:'bold', fontFamily:FONT },
+  distText:   { color:'#8fa8bf', fontSize:12, marginTop:4, fontFamily:FONT },
+  stateLabel: { textAlign:'center', fontSize:18, fontWeight:'bold',
+                letterSpacing:3, marginBottom:8, fontFamily:FONT },
+  dualBar:    { flexDirection:'row', justifyContent:'center', gap:20,
+                marginBottom:8, flexWrap:'wrap' },
+  barItem:    { alignItems:'center' },
+  barIcon:    { fontSize:16 },
+  barVal:     { color:'#8fa8bf', fontSize:11, fontFamily:FONT },
+  alert:      { marginHorizontal:16, borderWidth:2, borderRadius:8,
+                padding:14, marginBottom:8, backgroundColor:'#07090f' },
+  alertTitle: { color:'#ff6f00', fontWeight:'bold', fontSize:13,
+                letterSpacing:2, textAlign:'center', marginBottom:6, fontFamily:FONT },
+  alertSub:   { color:'#8fa8bf', fontSize:12, textAlign:'center', fontFamily:FONT },
+  alertBtn:   { marginTop:10, borderWidth:1, borderColor:'#ff6f00',
+                borderRadius:6, padding:12, alignItems:'center', backgroundColor:'#ff6f0022' },
+  alertBtnTxt:{ color:'#ff6f00', fontWeight:'bold', fontSize:13, fontFamily:FONT },
+  btnRow:     { marginHorizontal:16, marginBottom:8 },
+  btnStart:   { backgroundColor:'#00b4d8', borderRadius:8, padding:16, alignItems:'center' },
+  btnStop:    { backgroundColor:'#0d1520', borderWidth:1, borderColor:'#e53935',
+                borderRadius:8, padding:16, alignItems:'center' },
+  btnTxt:     { color:'#07090f', fontWeight:'bold', fontSize:15, fontFamily:FONT },
+  term:       { flex:1, marginHorizontal:16, backgroundColor:'#05080c',
+                borderRadius:8, padding:8, borderWidth:1, borderColor:'#1e3a5f' },
+  logLine:    { color:'#1e3a5f', fontSize:10, lineHeight:18, fontFamily:FONT },
 });

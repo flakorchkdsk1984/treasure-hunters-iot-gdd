@@ -42,6 +42,12 @@
           "modes": ["peripheral", "central"],
           "bluetoothAlwaysPermission": "THLS necesita Bluetooth para detectar balizas del juego."
         }
+      ],
+      [
+        "react-native-wifi-reborn",
+        {
+          "locationWhenInUsePermission": "THLS necesita ubicación para escanear redes WiFi cercanas."
+        }
       ]
     ]
   }
