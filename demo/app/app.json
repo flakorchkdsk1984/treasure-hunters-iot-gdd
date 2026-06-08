@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "THLS Scanner",
+    "slug": "thls-scanner",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#07090f",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.thls.scanner",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "THLS necesita Bluetooth para detectar balizas del juego sin conectarse a ninguna red.",
+        "NSBluetoothPeripheralUsageDescription": "THLS necesita Bluetooth para detectar balizas del juego.",
+        "NSLocationWhenInUseUsageDescription": "THLS usa ubicación para escanear dispositivos Bluetooth cercanos.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "THLS usa ubicación para detectar balizas cercanas."
+      }
+    },
+    "android": {
+      "package": "com.thls.scanner",
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CHANGE_WIFI_STATE",
+        "android.permission.ACCESS_WIFI_STATE"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#07090f",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      }
+    },
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["peripheral", "central"],
+          "bluetoothAlwaysPermission": "THLS necesita Bluetooth para detectar balizas del juego."
+        }
+      ]
+    ]
+  }
+}
