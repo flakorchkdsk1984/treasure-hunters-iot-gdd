@@ -4,11 +4,12 @@
   "main": "index.js",
   "dependencies": {
     "expo": "~56.0.9",
+    "expo-network": "~56.0.5",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-ble-plx": "^3.2.0",
-    "expo-network": "~6.0.1"
+    "react-native-wifi-reborn": "^4.10.0"
   },
   "scripts": {
     "start": "expo start",
